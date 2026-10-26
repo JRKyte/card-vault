@@ -40,7 +40,6 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
   const qc = useQueryClient()
   const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(profile.display_name)
-  const [passwordOpen, setPasswordOpen] = useState(false)
   const commit = () => {
     const n = name.trim()
     if (n && n !== profile.display_name) set({ display_name: n })
@@ -52,39 +51,42 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
       <div className="relative flex items-center gap-4">
         <Avatar profile={profile} size={68} ring />
         <div className="min-w-0 flex-1">
-          <input
-            ref={nameRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            aria-label="Your name"
-            maxLength={30}
-            className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[20px] font-bold tracking-[-.02em] outline-none focus:bg-[var(--chip)] focus:shadow-[0_0_0_1px_var(--color-accent)]"
-          />
+          <div className="flex min-w-0 items-center gap-1">
+            {/* The hidden copy of the name sizes the field, so the pencil sits right after it. */}
+            <span className="-ml-2 inline-grid min-w-0 text-[20px] font-bold tracking-[-.02em]">
+              <span aria-hidden className="invisible col-start-1 row-start-1 truncate px-2 py-1 whitespace-pre">
+                {name || ' '}
+              </span>
+              <input
+                ref={nameRef}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                aria-label="Your name"
+                maxLength={30}
+                size={1}
+                className="col-start-1 row-start-1 w-full min-w-0 rounded-xl bg-transparent px-2 py-1 text-ellipsis outline-none focus:bg-[var(--chip)] focus:shadow-[0_0_0_1px_var(--color-accent)]"
+              />
+            </span>
+            <button
+              type="button"
+              aria-label="Change name"
+              className="grid h-9 w-9 flex-none place-items-center rounded-full text-mute transition-colors hover:bg-[var(--chip)] hover:text-ink"
+              onClick={() => {
+                nameRef.current?.focus()
+                nameRef.current?.select()
+              }}
+            >
+              <IconEdit size={16} />
+            </button>
+          </div>
           {store.mode === 'supabase' && <div className="truncate text-[13px] text-mute">{user.data?.email}</div>}
           {store.mode === 'local' && <div className="text-[13px] text-mute">Saved on this device only</div>}
         </div>
-      </div>
-      <div className="relative mt-4 flex flex-wrap gap-2">
         <button
           type="button"
-          className="chip-btn"
-          onClick={() => {
-            nameRef.current?.focus()
-            nameRef.current?.select()
-          }}
-        >
-          <IconEdit size={15} /> Change name
-        </button>
-        {store.mode === 'supabase' && (
-          <button type="button" className="chip-btn" onClick={() => setPasswordOpen(true)}>
-            Change password
-          </button>
-        )}
-        <button
-          type="button"
-          className="chip-btn ml-auto"
+          className="chip-btn flex-none"
           onClick={async () => {
             if (!confirm('Sign out of Card Vault on this device?')) return
             await store.signOut()
@@ -95,7 +97,6 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
           Sign out
         </button>
       </div>
-      {passwordOpen && <ChangePassword onClose={() => setPasswordOpen(false)} />}
     </section>
   )
 }
@@ -292,6 +293,7 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
   const customSets = useCustomSets()
   const membership = useCustomMembership()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [key, setKey] = useState(() => {
@@ -375,6 +377,14 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
 
   return (
     <section className="surface flex flex-[1.4_1_360px] flex-col divide-y divide-[var(--line)] px-5 py-1">
+      {store.mode === 'supabase' && (
+        <Row label="Password">
+          <button type="button" className="chip-btn" onClick={() => setPasswordOpen(true)}>
+            Change
+          </button>
+          {passwordOpen && <ChangePassword onClose={() => setPasswordOpen(false)} />}
+        </Row>
+      )}
       <Row label="Show prices in" sub={fromStored(profile.currency_display) === 'gbp' ? 'Pounds are approximate (EUR × 0.85)' : undefined}>
         <Segmented<CurrencyMode>
           label="Show prices in"

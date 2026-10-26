@@ -55,8 +55,10 @@ button {
   color: inherit;
 }
 
+/* iOS fades content as it passes under the status bar, a little beyond the safe area itself,
+   so the first row sits clear of it. */
 .pt-safe {
-  padding-top: max(16px, env(safe-area-inset-top));
+  padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
 }
 
 @layer components {
