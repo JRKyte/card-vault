@@ -28,7 +28,7 @@ npm run build     # type-check and build to dist/
    - **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**.
 4. Create the family account: **Authentication → Users → Add user → Create new user**. Enter the email and password, and tick **Auto Confirm User**.
 
-   To let someone else use the app (a friend, a sibling), create another user the same way. Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. Send them the app link and the email and password you set. To remove someone later, delete their user and all their data goes with it.
+   To let someone else use the app (a friend, a sibling), create another user the same way. Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. Send them the app link and the email and password you set. Once signed in, anyone can change their own name and password from Settings (tap the avatar on the home screen); changing the password asks for the current one first. To remove someone later, delete their user and all their data goes with it.
 5. Get the two values the app needs:
    - **Publishable key**: **Project Settings → API Keys**. It starts with `sb_publishable_`. (Use the publishable key, never a secret key.)
    - **Project URL**: it's `https://<project-ref>.supabase.co`. The project ref is the random string in your dashboard's address bar (`supabase.com/dashboard/project/<project-ref>`). You can also copy the full URL from the **Connect** button at the top of the dashboard, or from **Project Settings → Data API**.

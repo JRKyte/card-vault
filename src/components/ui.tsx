@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { alpha, NEUTRAL_WASH } from '../lib/color'
 import { IconChevronLeft } from './icons'
@@ -158,7 +159,8 @@ export function ErrorMessage({ error, retry }: { error: unknown; retry?: () => v
   )
 }
 
-/** Fixed bottom sheet / centred modal with blurred glass. */
+/** Fixed bottom sheet / centred modal with blurred glass. Portalled to <body>, because a
+ * backdrop-filter on any ancestor would otherwise trap `position: fixed` inside it. */
 export function Modal({ onClose, children, title }: { onClose: () => void; children: ReactNode; title: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -170,7 +172,7 @@ export function Modal({ onClose, children, title }: { onClose: () => void; child
       document.body.style.overflow = prev
     }
   }, [onClose])
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 wide:items-center" onClick={onClose}>
       <div
         role="dialog"
@@ -182,6 +184,7 @@ export function Modal({ onClose, children, title }: { onClose: () => void; child
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

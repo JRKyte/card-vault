@@ -63,6 +63,8 @@ export interface Store {
   onAuthChange(fn: () => void): () => void
   signIn(email: string, password: string): Promise<void>
   signOut(): Promise<void>
+  /** Checks the current password, then sets a new one. */
+  changePassword(current: string, next: string): Promise<void>
 
   listItems(): Promise<CollectionItem[]>
   /** Adds copies, merging into an existing (card, variant, condition) row. */
@@ -128,6 +130,19 @@ class SupabaseStore implements Store {
   }
   async signOut() {
     await this.sb.auth.signOut()
+  }
+  async changePassword(current: string, next: string) {
+    const { data } = await this.sb.auth.getSession()
+    const email = data.session?.user.email
+    if (!email) throw new Error('You need to sign in again first.')
+    // Supabase doesn't check the old password on update, so confirm it by signing in with it.
+    const check = await this.sb.auth.signInWithPassword({ email, password: current })
+    if (check.error) throw new Error("Your current password isn't right.")
+    const { error } = await this.sb.auth.updateUser({ password: next })
+    if (!error) return
+    if (/different/i.test(error.message)) throw new Error('The new password must be different from the old one.')
+    if (/reauthenticat/i.test(error.message)) throw new Error('Supabase needs extra confirmation for password changes. Turn off "Secure password change" in the Supabase dashboard.')
+    throw new Error(error.message)
   }
 
   async listItems() {
@@ -316,6 +331,9 @@ class LocalStore implements Store {
   async signOut() {
     this.write((d) => (d.signedIn = false))
     this.listeners.forEach((f) => f())
+  }
+  async changePassword() {
+    throw new Error('There are no passwords on this device-only setup.')
   }
 
   async listItems() {

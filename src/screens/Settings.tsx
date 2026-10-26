@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar, CardCircle, InitialsCircle } from '../components/Avatar'
-import { IconCheck, IconDownload, IconRefresh, IconUpload } from '../components/icons'
+import { IconCheck, IconDownload, IconEdit, IconEye, IconEyeOff, IconRefresh, IconUpload } from '../components/icons'
 import { BackPill, Modal, Screen, Segmented, TopRow } from '../components/ui'
 import { AVATAR_OPTIONS } from '../data/avatar-options'
 import { loadCards } from '../lib/cards'
@@ -21,7 +21,8 @@ export function Settings() {
       <h1 className="mb-6 text-[44px] leading-tight font-extrabold tracking-tight">Settings</h1>
       <div className="grid grid-cols-1 gap-4 wide:grid-cols-2 wide:items-start">
         <div className="flex flex-col gap-4">
-          <Account profile={profile} set={set} />
+          {/* Keyed on the name so the field refreshes once the profile loads. */}
+          <Account key={profile.display_name} profile={profile} set={set} />
           <Preferences profile={profile} set={set} />
         </div>
         <AvatarPicker profile={profile} set={set} />
@@ -36,41 +37,144 @@ export function Settings() {
 function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>) => void }) {
   const user = useUser()
   const qc = useQueryClient()
+  const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(profile.display_name)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const commit = () => {
     const n = name.trim()
     if (n && n !== profile.display_name) set({ display_name: n })
     else setName(profile.display_name)
   }
   return (
-    <section className="glass flex items-center gap-5 p-5">
-      <Avatar profile={profile} size={88} />
-      <div className="min-w-0 flex-1">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          aria-label="Display name"
-          maxLength={30}
-          className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[26px] font-extrabold outline-none focus:bg-white/70"
-        />
-        {store.mode === 'supabase' && <div className="truncate text-[15px] text-ink-2">{user.data?.email}</div>}
-        {store.mode === 'local' && <div className="text-[14px] font-semibold text-muted">Saved on this device only</div>}
+    <section className="glass p-5">
+      <div className="flex items-center gap-5">
+        <Avatar profile={profile} size={88} />
+        <div className="min-w-0 flex-1">
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            aria-label="Your name"
+            maxLength={30}
+            className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[26px] font-extrabold outline-none focus:bg-white/70"
+          />
+          {store.mode === 'supabase' && <div className="truncate text-[15px] text-ink-2">{user.data?.email}</div>}
+          {store.mode === 'local' && <div className="text-[14px] font-semibold text-muted">Saved on this device only</div>}
+        </div>
       </div>
-      <button
-        type="button"
-        className="pill shrink-0 bg-ink text-[15px] text-white"
-        onClick={async () => {
-          if (!confirm('Sign out of Card Vault on this device?')) return
-          await store.signOut()
-          qc.clear()
-          qc.invalidateQueries({ queryKey: keys.user })
-        }}
-      >
-        Sign out
-      </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="pill bg-white/70 text-[15px]"
+          onClick={() => {
+            nameRef.current?.focus()
+            nameRef.current?.select()
+          }}
+        >
+          <IconEdit size={18} /> Change name
+        </button>
+        {store.mode === 'supabase' && (
+          <button type="button" className="pill bg-white/70 text-[15px]" onClick={() => setPasswordOpen(true)}>
+            Change password
+          </button>
+        )}
+        <button
+          type="button"
+          className="pill ml-auto bg-ink text-[15px] text-white"
+          onClick={async () => {
+            if (!confirm('Sign out of Card Vault on this device?')) return
+            await store.signOut()
+            qc.clear()
+            qc.invalidateQueries({ queryKey: keys.user })
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+      {passwordOpen && <ChangePassword onClose={() => setPasswordOpen(false)} />}
     </section>
+  )
+}
+
+const MIN_PASSWORD = 8
+
+function ChangePassword({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirmNext, setConfirmNext] = useState('')
+  const [show, setShow] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const problem =
+    next && next.length < MIN_PASSWORD ? `Use at least ${MIN_PASSWORD} characters.` : confirmNext && next !== confirmNext ? "The new passwords don't match." : null
+  const ready = current && next.length >= MIN_PASSWORD && next === confirmNext
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!ready) return
+    setBusy(true)
+    setError(null)
+    try {
+      await store.changePassword(current, next)
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change the password. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const field = (label: string, value: string, onChange: (v: string) => void, autoComplete: string) => (
+    <label className="flex flex-col gap-2">
+      <span className="text-[15px] font-semibold text-ink-2">{label}</span>
+      <input className="field !min-h-14 !text-[18px]" type={show ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+
+  return (
+    <Modal onClose={onClose} title="Change password">
+      {done ? (
+        <div className="flex flex-col items-center gap-3 p-8 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-full bg-up/10 text-up">
+            <IconCheck />
+          </div>
+          <h2 className="text-[24px] font-extrabold">Password changed</h2>
+          <p className="text-[16px] text-ink-2">Use the new password next time you sign in on another device.</p>
+          <button type="button" className="btn-dark mt-2" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-4 overflow-y-auto p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[24px] font-extrabold">Change password</h2>
+            <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-ink-2" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide passwords' : 'Show passwords'}>
+              {show ? <IconEyeOff /> : <IconEye />}
+            </button>
+          </div>
+          {field('Current password', current, setCurrent, 'current-password')}
+          {field('New password', next, setNext, 'new-password')}
+          {field('New password again', confirmNext, setConfirmNext, 'new-password')}
+          {(error ?? problem) && (
+            <p role="alert" className="text-[15px] font-semibold text-down">
+              {error ?? problem}
+            </p>
+          )}
+          <div className="mt-1 flex gap-3">
+            <button type="button" className="pill bg-white/70 text-[16px]" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-dark flex-1 !min-h-12 !text-[17px]" disabled={!ready || busy}>
+              {busy ? 'Saving…' : 'Save new password'}
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
 
