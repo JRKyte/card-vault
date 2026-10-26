@@ -23,10 +23,12 @@ npm run build     # type-check and build to dist/
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor**, paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and press **Run**.
-3. Turn off sign-ups and email confirmations, since only the family account will ever sign in:
+3. Turn off sign-ups and email confirmations, since you'll create every account yourself:
    - **Authentication → Sign In / Providers → Email**: turn off **Confirm email**.
    - **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**.
 4. Create the family account: **Authentication → Users → Add user → Create new user**. Enter the email and password, and tick **Auto Confirm User**.
+
+   To let someone else use the app (a friend, a sibling), create another user the same way. Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. Send them the app link and the email and password you set. To remove someone later, delete their user and all their data goes with it.
 5. Copy the keys from **Project Settings → API**: the **Project URL** and the **anon / public** key. They're safe to put in the app; Row Level Security stops anyone reading or changing your rows without signing in.
 
 For local development, put them in `.env.local`:
@@ -51,7 +53,7 @@ The workflow ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) ru
 ## 3. Add it to the iPad home screen
 
 1. Open the Pages URL in **Safari** on the iPad.
-2. Sign in with the family account.
+2. Sign in with your account.
 3. Tap the **Share** button, then **Add to Home Screen**, then **Add**.
 
 It now opens full screen like an app and stays signed in. Sign out is under Settings (tap the avatar on the home screen).

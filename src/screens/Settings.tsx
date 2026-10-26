@@ -56,7 +56,7 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
           className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[26px] font-extrabold outline-none focus:bg-white/70"
         />
         {store.mode === 'supabase' && <div className="truncate text-[15px] text-ink-2">{user.data?.email}</div>}
-        <div className="text-[14px] font-semibold text-muted">{store.mode === 'local' ? 'Saved on this device only' : 'Family account'}</div>
+        {store.mode === 'local' && <div className="text-[14px] font-semibold text-muted">Saved on this device only</div>}
       </div>
       <button
         type="button"
