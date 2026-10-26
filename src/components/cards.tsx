@@ -4,6 +4,7 @@ import { bestEur, bestUsd, displayPrice, priceFor, VARIANT_LABEL } from '../lib/
 import type { CollectionItem } from '../lib/sets'
 import type { Card } from '../lib/tcg'
 import { tintGradient, typeAccent } from '../data/type-colors'
+import { IconPlus } from './icons'
 import { alpha } from '../lib/color'
 
 /** Card art on a type-tinted gradient, which shows while the image loads. */
@@ -42,12 +43,33 @@ export function CardImage({
 }
 
 /** A tile in a set grid. Owned tiles get badges and a price; missing ones fade behind a dashed border. */
-export function CardTile({ card, items, onClick }: { card: Card; items: CollectionItem[]; onClick: () => void }) {
+/** A tile in a set grid, with an optional "+" for adding it without opening the card screen. */
+export function CardTile({ card, items, onClick, onQuickAdd }: { card: Card; items: CollectionItem[]; onClick: () => void; onQuickAdd?: () => void }) {
+  return (
+    <div className="relative">
+      <TileBody card={card} items={items} onClick={onClick} />
+      {onQuickAdd && (
+        <button
+          type="button"
+          onClick={onQuickAdd}
+          aria-label={`Quick add ${card.name}`}
+          // Sits over the art's bottom-right corner; the number/price row below is ~30px tall.
+          className="absolute right-2 bottom-[34px] grid h-8 w-8 place-items-center rounded-full text-white transition-transform active:scale-90"
+          style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', boxShadow: '0 0 0 1px rgba(196,181,253,.5), 0 0 16px rgba(139,92,246,.7)' }}
+        >
+          <IconPlus size={16} strokeWidth={2.6} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function TileBody({ card, items, onClick }: { card: Card; items: CollectionItem[]; onClick: () => void }) {
   const mode = useCurrencyMode()
   const owned = items.length > 0
   if (!owned) {
     return (
-      <button type="button" onClick={onClick} className="group flex flex-col gap-1.5 text-left" aria-label={`${card.name}, missing`}>
+      <button type="button" onClick={onClick} className="group flex w-full flex-col gap-1.5 text-left" aria-label={`${card.name}, missing`}>
         <div className="rounded-[14px] border border-dashed border-white/15 p-1 transition-colors group-hover:border-accent/50">
           <CardImage card={card} className="opacity-35 transition-opacity group-hover:opacity-50 group-active:opacity-60" rounded={10} />
         </div>
@@ -69,7 +91,7 @@ export function CardTile({ card, items, onClick }: { card: Card; items: Collecti
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col gap-1.5 text-left transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+      className="flex w-full flex-col gap-1.5 text-left transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
       aria-label={`${card.name}, owned ${qty}`}
     >
       <div className="relative">

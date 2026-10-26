@@ -67,10 +67,14 @@ button {
     position: relative;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 16px clamp(18px, 4%, 40px) calc(130px + env(safe-area-inset-bottom));
+    padding: 16px clamp(18px, 4%, 40px) calc(32px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     gap: 18px;
+  }
+  /* Room for the floating tab bar on the screens that show it. */
+  [data-nav] .page {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom));
   }
   .surface {
     background: var(--surface);

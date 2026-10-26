@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense, useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 import { Nav } from './components/Nav'
 import { keys, useUser } from './lib/queries'
 import { useDailySnapshot } from './lib/snapshot'
@@ -42,7 +42,14 @@ function SignedIn() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
-  const hideNav = pathname.startsWith('/custom/new') || /^\/custom\/[^/]+\/edit/.test(pathname)
+  const [params] = useSearchParams()
+  // The tab bar only shows on the four top-level screens. Inner pages (a set, a card, settings,
+  // the editor, and search while picking cards for a set) have their own back button instead.
+  const picking = params.has('to') || params.has('pick')
+  const showNav = ['/', '/sets', '/value'].includes(pathname) || (pathname === '/add' && !picking)
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-nav', showNav)
+  }, [showNav])
   return (
     <>
       <Routes>
@@ -66,7 +73,7 @@ function SignedIn() {
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {!hideNav && <Nav />}
+      {showNav && <Nav />}
     </>
   )
 }
