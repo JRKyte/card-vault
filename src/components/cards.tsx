@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { fmtUsd, priceFor, VARIANT_LABEL, bestUsd } from '../lib/pricing'
+import { useCurrencyMode } from '../lib/money'
+import { bestEur, bestUsd, displayPrice, priceFor, VARIANT_LABEL } from '../lib/pricing'
 import type { CollectionItem } from '../lib/sets'
 import type { Card } from '../lib/tcg'
 import { tintGradient } from '../data/type-colors'
@@ -41,9 +42,9 @@ export function CardImage({
 
 /** A tile in a set grid. Owned tiles get badges and a price; missing ones fade behind a dashed border. */
 export function CardTile({ card, items, onClick }: { card: Card; items: CollectionItem[]; onClick: () => void }) {
+  const mode = useCurrencyMode()
   const owned = items.length > 0
   if (!owned) {
-    const usd = bestUsd(card)
     return (
       <button type="button" onClick={onClick} className="group flex flex-col gap-1.5 text-left" aria-label={`${card.name}, missing`}>
         <div className="rounded-[16px] border-2 border-dashed border-ink/20 p-1">
@@ -51,14 +52,15 @@ export function CardTile({ card, items, onClick }: { card: Card; items: Collecti
         </div>
         <div className="flex justify-between gap-1 px-0.5 text-[13px] font-semibold text-muted">
           <span>#{card.number}</span>
-          <span>{fmtUsd(usd)}</span>
+          <span>{displayPrice(mode, bestUsd(card), bestEur(card))}</span>
         </div>
       </button>
     )
   }
   const qty = items.reduce((n, i) => n + i.quantity, 0)
   const special = items.find((i) => i.variant !== 'normal')
-  const usd = items.reduce((sum, i) => sum + (priceFor(card, i.variant, i.condition)?.usd ?? 0) * i.quantity, 0)
+  const prices = items.map((i) => ({ p: priceFor(card, i.variant, i.condition), q: i.quantity }))
+  const sum = (key: 'usd' | 'eur') => (prices.some(({ p }) => p?.[key] != null) ? prices.reduce((n, { p, q }) => n + (p?.[key] ?? 0) * q, 0) : null)
   return (
     <button type="button" onClick={onClick} className="flex flex-col gap-1.5 text-left transition-transform active:scale-[0.97]" aria-label={`${card.name}, owned ${qty}`}>
       <div className="relative">
@@ -72,7 +74,7 @@ export function CardTile({ card, items, onClick }: { card: Card; items: Collecti
       </div>
       <div className="flex justify-between gap-1 px-0.5 text-[13px] font-semibold">
         <span className="text-ink-2">#{card.number}</span>
-        <span>{usd > 0 ? fmtUsd(usd) : '—'}</span>
+        <span>{displayPrice(mode, sum('usd'), sum('eur'))}</span>
       </div>
     </button>
   )

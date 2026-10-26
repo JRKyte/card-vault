@@ -47,7 +47,10 @@ export interface Card {
   images: { small: string; large: string }
   set: TcgSet
   tcgplayer?: { updatedAt?: string; prices?: Partial<Record<Variant, TcgPlayerPrice>> }
-  cardmarket?: { updatedAt?: string; prices?: CardmarketPrices }
+  /** From TCGdex when it has the card (source: 'tcgdex'), else pokemontcg.io's own, often stale, copy. */
+  cardmarket?: { updatedAt?: string; prices?: CardmarketPrices; source?: 'tcgdex' }
+  /** Printings the card exists in, per TCGdex. Used when TCGplayer lists none. */
+  tcgdexVariants?: Variant[]
 }
 
 interface Page<T> {

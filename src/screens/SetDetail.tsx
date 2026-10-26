@@ -9,7 +9,7 @@ import { setColor } from '../data/set-colors'
 import { resolveSmartSet } from '../lib/cards'
 import { washFor } from '../lib/color'
 import { mainMoney, useCurrencyMode } from '../lib/money'
-import { fmtUsd } from '../lib/pricing'
+import { displayPrice } from '../lib/pricing'
 import {
   keys,
   useCards,
@@ -319,7 +319,7 @@ function SetBody({
         </div>
         {priciest && (
           <div className="truncate text-[15px] font-semibold text-ink-2">
-            Priciest missing: <span className="text-ink">{priciest.card.name}</span> · {fmtUsd(priciest.usd)}
+            Priciest missing: <span className="text-ink">{priciest.card.name}</span> · {displayPrice(mode, priciest.usd, priciest.eur)}
           </div>
         )}
       </div>

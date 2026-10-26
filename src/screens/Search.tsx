@@ -4,7 +4,8 @@ import { Thumb } from '../components/cards'
 import { IconCheck, IconChevronRight, IconPlus, IconSearch } from '../components/icons'
 import { BackPill, ErrorMessage, Message, Screen, Segmented, Skeleton, TopRow } from '../components/ui'
 import { draftCards, loadDraft, setDraftCards } from '../lib/draft'
-import { bestUsd, fmtUsd } from '../lib/pricing'
+import { useCurrencyMode } from '../lib/money'
+import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
 import { useCollection, useCustomMembership, useCustomSetMembership, useCustomSets, useSearch, useTracked } from '../lib/queries'
 import { sortCards } from '../lib/sets'
 import { searchQueryFor, type Card } from '../lib/tcg'
@@ -143,6 +144,7 @@ export function Search() {
 }
 
 function ResultRow({ card, onClick, trailing }: { card: Card; onClick: () => void; trailing: React.ReactNode }) {
+  const mode = useCurrencyMode()
   return (
     <button type="button" onClick={onClick} className="glass-flat flex items-center gap-4 p-3 pr-4 text-left transition-transform active:scale-[0.99]">
       <Thumb card={card} width={54} />
@@ -153,7 +155,7 @@ function ResultRow({ card, onClick, trailing }: { card: Card; onClick: () => voi
           {card.rarity && ` · ${card.rarity}`}
         </div>
       </div>
-      <div className="shrink-0 text-[16px] font-bold">{fmtUsd(bestUsd(card))}</div>
+      <div className="shrink-0 text-[16px] font-bold">{displayPrice(mode, bestUsd(card), bestEur(card))}</div>
       {trailing}
     </button>
   )

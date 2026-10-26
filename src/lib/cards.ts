@@ -4,6 +4,7 @@
 import { applyExclusions } from './sets'
 import { store, type Cached, type CustomSet, type PriceHistoryRow } from './store'
 import { allCards, allSets, cardsByIds, setCards, VARIANTS, type Card, type TcgSet } from './tcg'
+import { withTcgdexPrices } from './tcgdex'
 
 export const FRESH_MS = 24 * 60 * 60 * 1000
 
@@ -48,7 +49,7 @@ export async function loadCards(ids: string[], opts: { force?: boolean } = {}): 
   const need = opts.force ? unique : unique.filter((id) => !fresh.has(id))
   if (need.length) {
     try {
-      const fetched = await cardsByIds(need)
+      const fetched = await withTcgdexPrices(await cardsByIds(need))
       for (const c of fetched) map.set(c.id, c)
       await remember(fetched).catch(() => undefined)
     } catch (e) {
@@ -64,7 +65,7 @@ export async function loadSetCards(set: Pick<TcgSet, 'id' | 'total'>, opts: { fo
   const complete = cached.length >= set.total && cached.every((c) => isFresh(c.fetched_at))
   if (complete && !opts.force) return cached.map((c) => c.data)
   try {
-    const cards = await setCards(set.id)
+    const cards = await withTcgdexPrices(await setCards(set.id))
     await remember(cards).catch(() => undefined)
     return cards
   } catch (e) {
@@ -98,7 +99,7 @@ export async function runSmartQuery(query: string, exclusions: CustomSet['exclus
 export async function resolveSmartSet(set: CustomSet, resolvedAt: string | null, opts: { force?: boolean } = {}): Promise<string[] | null> {
   if (set.kind !== 'smart' || !set.query) return null
   if (!opts.force && resolvedAt && isFresh(resolvedAt)) return null
-  const cards = await runSmartQuery(set.query, set.exclusions)
+  const cards = await withTcgdexPrices(await runSmartQuery(set.query, set.exclusions))
   await remember(cards).catch(() => undefined)
   const ids = cards.map((c) => c.id)
   await store.replaceCustomSetCards(set.id, ids)

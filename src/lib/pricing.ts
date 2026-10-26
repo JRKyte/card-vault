@@ -70,10 +70,11 @@ export function priceFor(card: Card, variant: Variant, condition: Condition): Pr
   return { usd: usd === null ? null : round(usd * m), eur: eur === null ? null : round(eur * m) }
 }
 
-/** Variants to offer on the Add screen: the ones TCGplayer prices, or every common one when it has none. */
+/** Variants to offer on the Add screen: the ones TCGplayer prices, else what TCGdex says exists, else the common three. */
 export function variantsFor(card: Card): Variant[] {
   const priced = VARIANTS.filter((v) => card.tcgplayer?.prices?.[v])
   if (priced.length) return priced
+  if (card.tcgdexVariants?.length) return card.tcgdexVariants
   return ['normal', 'holofoil', 'reverseHolofoil']
 }
 
@@ -85,6 +86,23 @@ export function bestUsd(card: Card): number | null {
     if (n !== null && (best === null || n > best)) best = n
   }
   return best
+}
+
+/** Highest Cardmarket figure for a card; the EUR counterpart of bestUsd. */
+export function bestEur(card: Card): number | null {
+  const p = card.cardmarket?.prices
+  if (!p) return null
+  const values = [p.trendPrice, p.reverseHoloTrend, p.averageSellPrice].map(real).filter((n): n is number => n !== null)
+  return values.length ? Math.max(...values) : null
+}
+
+/**
+ * One price for display. EUR mode shows euros; otherwise dollars, falling back to euros when
+ * TCGplayer has nothing (common for new sets, which only TCGdex prices).
+ */
+export function displayPrice(mode: 'both' | 'usd' | 'eur', usd: number | null | undefined, eur: number | null | undefined): string {
+  if (mode === 'eur') return fmtEur(eur)
+  return usd != null ? fmtUsd(usd) : fmtEur(eur)
 }
 
 /** Slot for a future "recently sold" source (PriceCharting or similar). Always null for now. */

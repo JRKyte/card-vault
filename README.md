@@ -2,7 +2,7 @@
 
 A Pokémon card collecting app for iPad (and any other device). Track the cards you own, see what's missing from the sets you're collecting, and watch what the collection is worth. It installs to the home screen as a PWA and syncs through Supabase.
 
-Built with Vite, React, TypeScript, Tailwind, TanStack Query, Recharts and Supabase. Card data and prices come from [pokemontcg.io](https://pokemontcg.io).
+Built with Vite, React, TypeScript, Tailwind, TanStack Query, Recharts and Supabase. Card data, images and USD prices come from [pokemontcg.io](https://pokemontcg.io); EUR prices come from [TCGdex](https://tcgdex.dev).
 
 ## Run it locally
 
@@ -66,7 +66,7 @@ It now opens full screen like an app and stays signed in. Sign out is under Sett
 
 ### Upcoming sets — `src/data/upcoming-sets.json`
 
-The "Coming next" card first looks for a future-dated set in the card API. The API usually only lists sets once they're out, so most of the time it uses this file:
+The "Coming next" card first looks for a future-dated set in the card API. Neither pokemontcg.io nor TCGdex lists sets before they're released (checked October 2026), and there's no free API for announced sets, so in practice it uses this file:
 
 ```json
 [
@@ -74,7 +74,7 @@ The "Coming next" card first looks for a future-dated set in the card API. The A
 ]
 ```
 
-`releaseDate` is `YYYY-MM-DD`. Past dates are skipped automatically, and the soonest future entry is shown. Replace the two placeholder entries with real ones and push.
+`releaseDate` is `YYYY-MM-DD`. Past dates are skipped automatically, and the soonest future entry is shown; with no future entries the card is hidden. Main English sets are announced a few months ahead (roughly four a year), so add the next one when it's announced and push.
 
 ### Set colours — `src/data/set-colors.ts`
 
@@ -95,7 +95,8 @@ The nine Pokémon on the Settings screen each point at a card id. Change one to 
 
 ## Good to know
 
-- **Prices** come from TCGplayer (USD) and Cardmarket (EUR) via pokemontcg.io. In October 2026 the newest sets (2026 releases) had no prices in the API yet, and Cardmarket prices had not updated since November 2025. Cards with no price show "—" and add nothing to totals. The pound figure is EUR × 0.85, labelled "approx".
+- **Prices.** USD is TCGplayer's market price via pokemontcg.io. EUR is Cardmarket's trend price via TCGdex, updated daily and covering new sets; pokemontcg.io's own EUR prices stopped updating in November 2025, so they're only used when TCGdex doesn't have a card. TCGdex has no bulk price endpoint, so prices are fetched card by card and cached in Supabase for a day (`src/lib/tcgdex.ts`).
+- **2026 sets have no USD prices** in pokemontcg.io (as of October 2026). Single-card prices fall back to EUR, but dollar totals leave those cards out. For a UK collection, **Settings → Show prices in → EUR** gives the most complete totals, with the approx £ beside them (EUR × 0.85).
 - **eBay sold prices** have a placeholder (`ebaySoldGbp` in `src/lib/pricing.ts`) that returns nothing for now; the card screen says "Sold prices not available".
 - **The card API is flaky without a key.** Requests are retried with backoff, and everything fetched is cached in Supabase (`card_cache`, `set_cache`) and by the service worker, so pages still open offline.
 - **pokemontcg.io's future:** Scrydex says it is the official successor to pokemontcg.io, and that an end-of-life date for the old API will be announced. The API code is all in `src/lib/tcg.ts` if it ever needs swapping.

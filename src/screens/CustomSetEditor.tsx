@@ -8,7 +8,8 @@ import { CUSTOM_SET_SWATCHES } from '../data/set-colors'
 import { runSmartQuery, smartQueryFor, termFromQuery } from '../lib/cards'
 import { alpha, washFor } from '../lib/color'
 import { clearDraft, loadDraft, saveDraft, type Draft } from '../lib/draft'
-import { bestUsd, fmtUsd } from '../lib/pricing'
+import { useCurrencyMode } from '../lib/money'
+import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
 import { useCards, useCollection, useCreateCustomSet, useCustomMembership, useCustomSets, useDeleteCustomSet, useUpdateCustomSet } from '../lib/queries'
 import type { Exclusions } from '../lib/sets'
 import type { CustomSet } from '../lib/store'
@@ -241,15 +242,22 @@ function SmartPanel({
   hasQuery: boolean
 }) {
   const { owned } = useCollection()
+  const mode = useCurrencyMode()
   const ex = d.exclusions
   const setEx = (patch: Partial<Exclusions>) => update({ exclusions: { ...ex, ...patch } })
 
   const stats = useMemo(() => {
     const cards = preview.data ?? []
     const have = cards.filter((c) => owned.has(c.id)).length
-    let toComplete = 0
-    for (const c of cards) if (!owned.has(c.id)) toComplete += bestUsd(c) ?? 0
-    return { total: cards.length, have, toComplete }
+    // Sum each currency separately; show USD unless it's missing or EUR is chosen.
+    let usd = 0
+    let eur = 0
+    for (const c of cards) {
+      if (owned.has(c.id)) continue
+      usd += bestUsd(c) ?? 0
+      eur += bestEur(c) ?? 0
+    }
+    return { total: cards.length, have, toComplete: { usd: usd || null, eur: eur || null } }
   }, [preview.data, owned])
 
   return (
@@ -305,7 +313,7 @@ function SmartPanel({
               <div className="text-[24px] font-extrabold">{stats.total} cards match</div>
               <div className="text-[15px] font-semibold text-ink-2">
                 You already own {stats.have} of them
-                {stats.toComplete > 0 && <> · worth {fmtUsd(stats.toComplete)} to complete</>}
+                {(stats.toComplete.usd ?? stats.toComplete.eur) && <> · worth {displayPrice(mode, stats.toComplete.usd, stats.toComplete.eur)} to complete</>}
               </div>
             </div>
             <div className="flex items-center gap-2">

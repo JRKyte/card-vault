@@ -1,4 +1,4 @@
-import { bestUsd, priceFor, type Condition } from './pricing'
+import { bestEur, bestUsd, priceFor, type Condition } from './pricing'
 import { parseReleaseDate, type Card, type Variant } from './tcg'
 
 export interface CollectionItem {
@@ -72,13 +72,16 @@ export function missingCards(setCards: Card[], owned: ReadonlySet<string>): Card
   return setCards.filter((c) => !owned.has(c.id))
 }
 
-export function priciestMissing(setCards: Card[], owned: ReadonlySet<string>): { card: Card; usd: number } | null {
-  let best: { card: Card; usd: number } | null = null
+/** The missing card worth most. Ranks by USD, or EUR for cards TCGplayer doesn't price. */
+export function priciestMissing(setCards: Card[], owned: ReadonlySet<string>): { card: Card; usd: number | null; eur: number | null } | null {
+  let best: { card: Card; usd: number | null; eur: number | null; rank: number } | null = null
   for (const card of missingCards(setCards, owned)) {
     const usd = bestUsd(card)
-    if (usd !== null && (!best || usd > best.usd)) best = { card, usd }
+    const eur = bestEur(card)
+    const rank = usd ?? eur
+    if (rank !== null && (!best || rank > best.rank)) best = { card, usd, eur, rank }
   }
-  return best
+  return best && { card: best.card, usd: best.usd, eur: best.eur }
 }
 
 export const isPromoSet = (card: Card) => /promo/i.test(card.set.series) || /promo/i.test(card.set.name)

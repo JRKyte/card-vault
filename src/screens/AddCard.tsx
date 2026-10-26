@@ -10,10 +10,9 @@ import { mainMoney, useCurrencyMode } from '../lib/money'
 import {
   CONDITION_LABEL,
   CONDITIONS,
+  displayPrice,
   ebaySoldGbp,
   fmtGbp,
-  fmtUsd,
-  fmtEur,
   priceFor,
   VARIANT_LABEL,
   variantsFor,
@@ -99,7 +98,9 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
 
   const current = editing ?? { variant, condition, quantity: qty }
   const each = priceFor(card, current.variant, current.condition)
-  const addedValue = each ? (currency === 'eur' ? each.eur : each.usd) : null
+  // Same rule as displayPrice: dollars unless EUR is chosen or there's no dollar price.
+  const addedCur: 'usd' | 'eur' = currency === 'eur' || each?.usd == null ? 'eur' : 'usd'
+  const addedValue = each ? each[addedCur] : null
 
   function doAdd() {
     const before = cardSets
@@ -139,7 +140,7 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
                 className={optionBtn(active)}
                 onClick={() => (editing ? update.mutate({ id: editing.id, patch: { variant: v } }) : setVariant(v))}
               >
-                {VARIANT_LABEL[v]} · {p ? (currency === 'eur' ? fmtEur(p.eur) : fmtUsd(p.usd)) : '—'}
+                {VARIANT_LABEL[v]} · {displayPrice(currency, p?.usd, p?.eur)}
               </button>
             )
           })}
@@ -179,7 +180,7 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
 
   const summaryPills = (
     <div className="flex flex-wrap justify-center gap-2 wide:justify-start">
-      {mode === 'add' && <MoneyPill value={addedValue} qty={qty} burst={burstKey} currency={currency} />}
+      {mode === 'add' && <MoneyPill value={addedValue} qty={qty} burst={burstKey} currency={addedCur} />}
       {cardSets.slice(0, 2).map((s) => (
         <SetPill key={s.key} set={s} />
       ))}
@@ -313,7 +314,7 @@ function EbayLine({ card }: { card: Card }) {
   return <p className="text-[14px] font-semibold text-ink-2">{gbp === null ? 'Sold prices not available' : `Recently sold on eBay: ${fmtGbp(gbp)}`}</p>
 }
 
-function MoneyPill({ value, qty, burst, currency }: { value: number | null; qty: number; burst: number; currency: 'both' | 'usd' | 'eur' }) {
+function MoneyPill({ value, qty, burst, currency }: { value: number | null; qty: number; burst: number; currency: 'usd' | 'eur' }) {
   // After an add, count up from zero to the amount just added.
   const [target, setTarget] = useState<number | null>(null)
   useEffect(() => {
@@ -327,7 +328,7 @@ function MoneyPill({ value, qty, burst, currency }: { value: number | null; qty:
   if (total === null) return <span className="glass pill text-[15px] text-ink-2">No price yet</span>
   return (
     <span className="glass pill text-[15px] text-up tabular-nums">
-      + {mainMoney(currency === 'eur' ? 'eur' : 'usd', shown, shown)} to your total
+      + {mainMoney(currency, shown, shown)} to your total
     </span>
   )
 }
