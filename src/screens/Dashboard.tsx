@@ -1,110 +1,41 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Avatar } from '../components/Avatar'
-import { IconPlus, IconSearch, IconSparkle, IconStar, IconWand } from '../components/icons'
-import { SetLogo, SetRow } from '../components/SetBits'
-import { ErrorMessage, Message, Modal, Screen, Segmented, Skeleton } from '../components/ui'
-import { setColor } from '../data/set-colors'
-import { useCurrencyMode, mainMoney } from '../lib/money'
-import { fmtEur, fmtUsd } from '../lib/pricing'
+import { IconChevronRight, IconPlus, IconStar } from '../components/icons'
+import { RecentSetTile } from '../components/SetBits'
+import { Message, Screen, Skeleton } from '../components/ui'
+import { today } from '../lib/cards'
+import { useCurrencyMode } from '../lib/money'
+import { displayPrice, fmtIn, inCurrency } from '../lib/pricing'
 import { DEFAULT_PROFILE, useCollection, useProfile, useSets, useSnapshots } from '../lib/queries'
-import { itemsValue } from '../lib/sets'
+import { itemsValue, rarityBuckets, type RarityBucket } from '../lib/sets'
 import { useSetSummaries, type SetSummary } from '../lib/summaries'
 import { daysUntil, nextUpcoming } from '../lib/upcoming'
 
+const RARITY_COLORS: Record<RarityBucket, string> = { Commons: '#94a3b8', Uncommons: '#34d399', Rares: '#facc15', Promos: '#f472b6' }
+const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA')
+
 export function Dashboard() {
-  const [view, setView] = useState<'mine' | 'all'>(() => (sessionStorage.getItem('sets-view') as 'mine' | 'all') ?? 'mine')
-  const [chooser, setChooser] = useState(false)
+  const profile = useProfile().data ?? DEFAULT_PROFILE
   const summaries = useSetSummaries()
-
-  const changeView = (v: 'mine' | 'all') => {
-    setView(v)
-    try {
-      sessionStorage.setItem('sets-view', v)
-    } catch {
-      // Not important.
-    }
-  }
-
-  const rows: SetSummary[] = view === 'mine' ? summaries.mine : [...summaries.custom, ...summaries.official]
+  const date = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
   return (
     <Screen>
-      <Header />
+      <header className="flex items-end justify-between gap-4 pt-2">
+        <div className="flex flex-col gap-1">
+          <span className="mono text-[11px] font-semibold tracking-[.14em] text-mute uppercase">{date}</span>
+          <h1 className="title">Card Vault</h1>
+        </div>
+        <Link to="/settings" aria-label="Settings" className="flex-none rounded-full">
+          <Avatar profile={profile} size={52} ring />
+        </Link>
+      </header>
+
       <Stats mine={summaries.mine} />
       <ComingNext />
-
-      <div className="mt-9 mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[28px] font-extrabold">Sets</h2>
-        <Segmented
-          label="Which sets"
-          value={view}
-          onChange={changeView}
-          options={[
-            { value: 'mine', label: 'My sets' },
-            { value: 'all', label: 'All sets' },
-          ]}
-        />
-      </div>
-
-      {summaries.isLoading ? (
-        <div className="flex flex-col gap-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[92px]" />
-          ))}
-        </div>
-      ) : summaries.setsError && !summaries.official.length && (view === 'all' || summaries.trackedPending > 0) ? (
-        <ErrorMessage error={summaries.setsError} retry={() => summaries.refetchSets()} />
-      ) : view === 'mine' && rows.length === 0 && !summaries.trackedPending ? (
-        <Message
-          icon={<IconStar />}
-          title="Pick a set to collect"
-          body="Choose a set and we'll show you which cards you've got and which you still need."
-          action={
-            <button type="button" className="btn-dark mt-2" onClick={() => setChooser(true)}>
-              Choose a set
-            </button>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {rows.map((s) => (
-            <SetRow key={s.key} set={s} />
-          ))}
-          {summaries.setsLoading &&
-            Array.from({ length: view === 'mine' ? summaries.trackedPending : 4 }, (_, i) => <Skeleton key={`pending-${i}`} className="h-[92px]" />)}
-          <button
-            type="button"
-            onClick={() => setChooser(true)}
-            className="flex min-h-[92px] items-center justify-center gap-3 rounded-[22px] border-2 border-dashed border-ink/20 text-[18px] font-bold text-ink-2 transition-colors active:bg-white/40"
-          >
-            <IconPlus /> New set
-          </button>
-        </div>
-      )}
-
-      {chooser && <NewSetChooser onClose={() => setChooser(false)} />}
+      <RecentSets recent={summaries.recent} loading={summaries.isLoading} pending={summaries.setsLoading ? summaries.trackedPending : 0} />
     </Screen>
-  )
-}
-
-function Header() {
-  const profile = useProfile().data ?? DEFAULT_PROFILE
-  const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-  return (
-    <header className="mb-7 flex items-start justify-between gap-4">
-      <div>
-        <div className="text-[16px] font-semibold text-ink-2">{date}</div>
-        <h1 className="text-[44px] leading-[1.05] font-extrabold tracking-tight wide:text-[52px]">My cards</h1>
-      </div>
-      <Link to="/settings" className="glass flex items-center gap-3 rounded-full p-1.5 pr-5" aria-label="Settings">
-        <Avatar profile={profile} size={48} />
-        <div className="hidden min-[420px]:block">
-          <div className="max-w-[160px] truncate text-[16px] font-bold">{profile.display_name}</div>
-          <div className="text-[13px] font-semibold text-ink-2">Settings</div>
-        </div>
-      </Link>
-    </header>
   )
 }
 
@@ -113,82 +44,142 @@ function Stats({ mine }: { mine: SetSummary[] }) {
   const snapshots = useSnapshots()
   const mode = useCurrencyMode()
 
-  const stats = useMemo(() => {
+  const s = useMemo(() => {
     const count = items.reduce((n, i) => n + i.quantity, 0)
-    const weekAgo = Date.now() - 7 * 864e5
-    const thisWeek = items.filter((i) => new Date(i.created_at).getTime() > weekAgo).reduce((n, i) => n + i.quantity, 0)
+    const weekAgoMs = Date.now() - 7 * 864e5
+    const thisWeek = items.filter((i) => new Date(i.created_at).getTime() > weekAgoMs).reduce((n, i) => n + i.quantity, 0)
     const value = itemsValue(items, cards)
-    // Change against the newest snapshot that is at least a week old (or the oldest we have).
+    const now = inCurrency(mode, value.priced ? value.usd : null, value.priced ? value.eur : null)
     const snaps = snapshots.data ?? []
-    const cutoff = new Date(weekAgo).toLocaleDateString('en-CA')
-    const base = [...snaps].reverse().find((s) => s.taken_on <= cutoff) ?? snaps[0]
-    const delta = base ? { usd: value.usd - Number(base.total_usd), eur: value.eur - Number(base.total_eur) } : null
-    const mastered = mine.filter((s) => s.progress.mastered).length
-    const closest = mine.filter((s) => !s.progress.mastered).sort((a, b) => b.progress.pct - a.progress.pct)[0]
-    return { count, thisWeek, value, delta, mastered, closest }
-  }, [items, cards, snapshots.data, mine])
+    // Change since the newest snapshot at least a week old (or the oldest we have).
+    const base = [...snaps].reverse().find((x) => x.taken_on <= daysAgo(7)) ?? snaps[0]
+    const then = base ? inCurrency(mode, Number(base.total_usd), Number(base.total_eur)) : null
+    const delta = now !== null && then !== null ? now - then : null
+    // Sparkline: the last 14 snapshots plus today's live value.
+    const points = [...snaps.filter((x) => x.taken_on !== today()).slice(-13).map((x) => inCurrency(mode, Number(x.total_usd), Number(x.total_eur))), now].filter(
+      (n): n is number => n !== null,
+    )
+    const rar = rarityBuckets(items, cards)
+    const mastered = mine.filter((x) => x.progress.mastered).length
+    const next = mine.filter((x) => !x.progress.mastered).sort((a, b) => b.progress.pct - a.progress.pct)[0]
+    return { count, thisWeek, value, delta, points, rar, mastered, next }
+  }, [items, cards, snapshots.data, mine, mode])
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-3">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-[122px]" />
-        ))}
+      <div className="flex flex-wrap gap-3">
+        <Skeleton className="h-[188px] flex-[1_1_320px] !rounded-[26px]" />
+        <Skeleton className="h-[188px] flex-[1_1_320px] !rounded-[20px]" />
       </div>
     )
   }
 
-  if (stats.count === 0) {
-    return (
-      <Link to="/add" className="glass flex items-center gap-5 p-6">
-        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[20px] bg-ink text-white">
-          <IconPlus size={30} />
-        </div>
-        <div>
-          <div className="text-[24px] font-extrabold">Add your first card</div>
-          <div className="text-[16px] text-ink-2">Search by name or the number at the bottom of the card.</div>
-        </div>
-      </Link>
-    )
-  }
+  const rarTotal = Object.values(s.rar).reduce((a, b) => a + b, 0)
 
-  const deltaMain = stats.delta ? (mode === 'eur' ? stats.delta.eur : stats.delta.usd) : null
-  const up = (deltaMain ?? 0) >= 0
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Tile label="Cards" value={stats.count.toLocaleString()} sub={stats.thisWeek ? `+${stats.thisWeek} this week` : 'None new this week'} />
-      <Tile
-        label="Value"
-        value={stats.value.priced ? mainMoney(mode, stats.value.usd, stats.value.eur) : '—'}
-        sub={
-          stats.delta && Math.abs(deltaMain ?? 0) >= 0.01 ? (
-            <span className={up ? 'text-up' : 'text-down'}>
-              {up ? '▲' : '▼'} {mode === 'eur' ? fmtEur(Math.abs(stats.delta.eur)) : fmtUsd(Math.abs(stats.delta.usd))}
-              {mode === 'both' && <span className="text-ink-2"> · {fmtEur(stats.value.eur)}</span>}
+    <div className="flex flex-wrap gap-3">
+      {/* Total cards hero */}
+      <div
+        className="relative flex flex-[1_1_320px] flex-col gap-4 overflow-hidden rounded-[26px] p-5 text-white"
+        style={{
+          background: 'linear-gradient(135deg,#2b1458 0%,#160c2b 60%,#0e0a1a 100%)',
+          boxShadow: '0 0 0 1px rgba(167,139,250,.4), 0 10px 50px rgba(139,92,246,.35)',
+        }}
+      >
+        <div className="pointer-events-none absolute -top-[70px] -right-[50px] h-60 w-60 rounded-full" style={{ background: 'radial-gradient(circle, rgba(167,139,250,.45), transparent 65%)' }} />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="mono text-[10.5px] font-semibold tracking-[.16em] text-accent-2">TOTAL CARDS</span>
+            <span className="text-[56px] leading-[.95] font-extrabold tracking-[-.05em]" style={{ textShadow: '0 0 28px rgba(196,181,253,.6)' }}>
+              {s.count.toLocaleString()}
             </span>
-          ) : mode === 'both' ? (
-            fmtEur(stats.value.priced ? stats.value.eur : null)
+          </div>
+          {s.thisWeek > 0 && <span className="rounded-full bg-[rgba(52,211,153,.14)] px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap text-up">+{s.thisWeek} this week</span>}
+        </div>
+        {rarTotal > 0 ? (
+          <>
+            <div className="relative flex h-2.5 gap-[3px]">
+              {(Object.keys(s.rar) as RarityBucket[])
+                .filter((k) => s.rar[k] > 0)
+                .map((k) => (
+                  <div key={k} className="rounded-full" style={{ flex: `${s.rar[k]} 1 0`, background: RARITY_COLORS[k], boxShadow: `0 0 12px ${RARITY_COLORS[k]}` }} />
+                ))}
+            </div>
+            <div className="relative flex flex-wrap gap-x-3.5 gap-y-1.5">
+              {(Object.keys(s.rar) as RarityBucket[]).map((k) => (
+                <span key={k} className="flex items-center gap-1.5 text-[11.5px] text-[#cbc4dd]">
+                  <span className="h-[7px] w-[7px] rounded-full" style={{ background: RARITY_COLORS[k], boxShadow: `0 0 8px ${RARITY_COLORS[k]}` }} />
+                  {k} {Math.round((s.rar[k] / rarTotal) * 100)}%
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Link to="/add" className="relative flex items-center gap-2 self-start rounded-full bg-white/10 px-4 py-2.5 text-[13px] font-semibold">
+            <IconPlus size={16} /> Add your first card
+          </Link>
+        )}
+      </div>
+
+      {/* Value + master sets */}
+      <div className="grid flex-[1_1_320px] grid-cols-2 gap-2.5">
+        <Link to="/value" className="tile flex min-w-0 flex-col gap-2 p-3.5">
+          <div className="pointer-events-none absolute -right-[30px] -bottom-10 h-[120px] w-[120px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(52,211,153,.22), transparent 70%)' }} />
+          <span className="relative text-[12px] font-medium text-mute">Collection value</span>
+          <span className="relative truncate text-[26px] leading-none font-bold tracking-[-.03em]">
+            {s.value.priced ? displayPrice(mode, s.value.usd || null, s.value.eur || null) : '—'}
+          </span>
+          {s.delta !== null && Math.abs(s.delta) >= 0.01 ? (
+            <span className={`relative text-[11.5px] font-semibold ${s.delta >= 0 ? 'text-up' : 'text-down'}`}>
+              {s.delta >= 0 ? '▲' : '▼'} {fmtIn(mode, Math.abs(s.delta))} this week
+            </span>
           ) : (
-            'This week'
-          )
-        }
-      />
-      <Tile
-        label="Mastered"
-        value={`${stats.mastered} / ${mine.length}`}
-        sub={stats.closest ? `Closest: ${stats.closest.name} at ${stats.closest.progress.pct}%` : mine.length ? 'All done!' : 'No sets yet'}
-      />
+            <span className="relative text-[11.5px] text-mute">{mode === 'gbp' ? 'Approx, from EUR' : 'This week'}</span>
+          )}
+          <Sparkline points={s.points} color={s.delta !== null && s.delta < 0 ? '#f87171' : '#34d399'} />
+        </Link>
+        <Link to="/sets" className="tile flex min-w-0 flex-col gap-2 p-3.5">
+          <div className="pointer-events-none absolute -right-[30px] -bottom-10 h-[120px] w-[120px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(167,139,250,.22), transparent 70%)' }} />
+          <span className="relative text-[12px] font-medium text-mute">Master sets</span>
+          <span className="relative text-[26px] leading-none font-bold tracking-[-.03em]">
+            {s.mastered}
+            <span className="font-medium text-mute"> / {mine.length}</span>
+          </span>
+          <span className="relative truncate text-[11.5px] text-mute">{s.next ? `Next: ${s.next.name}` : mine.length ? 'All mastered!' : 'No sets yet'}</span>
+          <div className="relative flex h-[26px] items-end gap-1">
+            {mine.slice(0, 12).map((x) => (
+              <span
+                key={x.key}
+                className="h-2 flex-1 rounded"
+                style={x.progress.mastered ? { background: '#a78bfa', boxShadow: '0 0 12px #a78bfa' } : { background: 'var(--track)' }}
+              />
+            ))}
+          </div>
+        </Link>
+      </div>
     </div>
   )
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {
+function Sparkline({ points, color }: { points: number[]; color: string }) {
+  if (points.length < 2) return <div className="h-[26px]" />
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const span = max - min || 1
+  const coords = points.map((p, i) => `${(i / (points.length - 1)) * 100},${24 - ((p - min) / span) * 20}`).join(' ')
   return (
-    <div className="glass min-w-0 p-4 wide:p-5">
-      <div className="text-[14px] font-semibold text-ink-2">{label}</div>
-      <div className="mt-1 truncate text-[26px] leading-tight font-extrabold wide:text-[32px]">{value}</div>
-      <div className="mt-1 line-clamp-2 text-[13px] font-semibold text-ink-2 wide:text-[14px]">{sub}</div>
-    </div>
+    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="relative h-[26px] w-full overflow-visible" aria-hidden>
+      <polyline
+        points={coords}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+        style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+      />
+    </svg>
   )
 }
 
@@ -198,107 +189,61 @@ function ComingNext() {
   if (!next) return null
   const days = daysUntil(next.releaseDate)
   return (
-    <div className="glass-dark mt-4 flex items-center justify-between gap-4 p-5 wide:p-6">
-      <div className="min-w-0">
-        <div className="eyebrow text-white/60">Coming next</div>
-        <div className="mt-1 truncate text-[24px] font-extrabold">{next.name}</div>
-        <div className="mt-0.5 text-[15px] text-white/70">
-          Releases {next.releaseDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
-          {next.cardCount ? ` · ${next.cardCount} cards` : ''}
-        </div>
+    <div className="flex items-center gap-3 rounded-[18px] py-2.5 pr-2.5 pl-4" style={{ background: 'var(--surface)', border: '1px solid rgba(167,139,250,.28)', boxShadow: '0 0 24px rgba(139,92,246,.12)' }}>
+      <span className="h-2 w-2 flex-none rounded-full bg-accent" style={{ boxShadow: '0 0 10px #a78bfa' }} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="mono text-[9.5px] font-semibold tracking-[.14em] text-mute">COMING NEXT</span>
+        <span className="truncate text-[13.5px] font-semibold">
+          {next.name}{' '}
+          <span className="font-medium text-mute">
+            · {next.releaseDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            {next.cardCount ? ` · ${next.cardCount} cards` : ''}
+          </span>
+        </span>
       </div>
-      <div className="shrink-0 rounded-[18px] bg-white/10 px-5 py-3 text-center">
-        <div className="text-[34px] leading-none font-extrabold">{days}</div>
-        <div className="mt-1 text-[13px] font-semibold text-white/70">{days === 1 ? 'day to go' : days === 0 ? 'out today' : 'days to go'}</div>
-      </div>
+      <span className="mono flex-none rounded-xl bg-[rgba(139,92,246,.18)] px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-[#e9e3ff]">
+        {days === 0 ? 'Today' : `${days}d`}
+      </span>
     </div>
   )
 }
 
-function NewSetChooser({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState<'choose' | 'official'>('choose')
-  const [term, setTerm] = useState('')
-  const navigate = useNavigate()
-  const sets = useSets()
-  const summaries = useSetSummaries()
-
-  const filtered = useMemo(() => {
-    const t = term.trim().toLowerCase()
-    return (sets.data ?? []).filter((s) => !t || s.name.toLowerCase().includes(t) || s.series.toLowerCase().includes(t) || s.id.toLowerCase().includes(t))
-  }, [sets.data, term])
-
+function RecentSets({ recent, loading, pending }: { recent: SetSummary[]; loading: boolean; pending: number }) {
   return (
-    <Modal onClose={onClose} title="New set">
-      {step === 'choose' ? (
-        <div className="flex flex-col gap-3 p-5">
-          <h2 className="mb-2 text-[26px] font-extrabold">New set</h2>
-          <button type="button" className="glass-flat flex items-center gap-4 p-4 text-left" onClick={() => setStep('official')}>
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[16px] bg-ink text-white">
-              <IconSparkle />
-            </div>
-            <div>
-              <div className="text-[19px] font-bold">Track an official set</div>
-              <div className="text-[15px] text-ink-2">Pick from every set that's been released.</div>
-            </div>
-          </button>
-          <button
-            type="button"
-            className="glass-flat flex items-center gap-4 p-4 text-left"
-            onClick={() => {
-              onClose()
-              navigate('/custom/new')
-            }}
-          >
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[16px] bg-ink text-white">
-              <IconWand />
-            </div>
-            <div>
-              <div className="text-[19px] font-bold">Make a custom set</div>
-              <div className="text-[15px] text-ink-2">Every Pikachu, your favourites, anything you like.</div>
-            </div>
-          </button>
+    <section className="mt-1 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[22px] font-bold tracking-[-.03em]">Recent sets</h2>
+        <Link to="/sets" className="flex items-center gap-1 rounded-full py-2 pr-1.5 pl-3 text-[13px] font-semibold text-accent hover:bg-[var(--chip)]">
+          See all <IconChevronRight size={16} strokeWidth={2.4} />
+        </Link>
+      </div>
+      {loading ? (
+        <div className="grid auto-cols-[minmax(156px,1fr)] grid-flow-col gap-2.5">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-[150px] !rounded-[22px]" />
+          ))}
         </div>
+      ) : recent.length === 0 && !pending ? (
+        <Message
+          icon={<IconStar />}
+          title="Pick a set to collect"
+          body="Choose a set and see which cards you've got and which you still need."
+          action={
+            <Link to="/sets?new=1" className="btn mt-2">
+              Choose a set
+            </Link>
+          }
+        />
       ) : (
-        <>
-          <div className="p-5 pb-3">
-            <h2 className="mb-3 text-[26px] font-extrabold">Track an official set</h2>
-            <div className="relative">
-              <IconSearch className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-2" />
-              <input className="field !min-h-14 pl-12 !text-[18px]" placeholder="Search sets" value={term} onChange={(e) => setTerm(e.target.value)} autoFocus />
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-5">
-            {sets.isLoading && <Skeleton className="h-40" />}
-            {sets.error && !sets.data && <ErrorMessage error={sets.error} retry={() => sets.refetch()} />}
-            <div className="flex flex-col gap-1">
-              {filtered.map((s) => {
-                const tracked = summaries.trackedIds.has(s.id)
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      onClose()
-                      navigate(`/set/${s.id}`)
-                    }}
-                    className="flex items-center gap-3 rounded-2xl p-2 text-left active:bg-ink/5"
-                  >
-                    <SetLogo set={{ kind: 'official', color: setColor(s.id), code: s.ptcgoCode ?? s.id.toUpperCase(), symbol: s.images.symbol, name: s.name }} size={48} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[17px] font-bold">{s.name}</div>
-                      <div className="text-[14px] text-ink-2">
-                        {s.series} · {s.releaseDate.slice(0, 4)} · {s.total} cards
-                      </div>
-                    </div>
-                    {tracked && <span className="text-[13px] font-bold text-up">Collecting</span>}
-                  </button>
-                )
-              })}
-              {!sets.isLoading && filtered.length === 0 && sets.data && <p className="p-4 text-center text-ink-2">No sets match "{term}".</p>}
-            </div>
-          </div>
-        </>
+        <div className="no-scrollbar -mx-1 grid auto-cols-[minmax(156px,1fr)] grid-flow-col gap-2.5 overflow-x-auto px-1 pt-1 pb-2">
+          {recent.slice(0, 8).map((s) => (
+            <RecentSetTile key={s.key} set={s} />
+          ))}
+          {Array.from({ length: pending }, (_, i) => (
+            <Skeleton key={`p${i}`} className="h-[150px] !rounded-[22px]" />
+          ))}
+        </div>
       )}
-    </Modal>
+    </section>
   )
 }

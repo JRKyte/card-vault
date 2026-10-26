@@ -3,12 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardTile } from '../components/cards'
 import { IconEdit, IconPlus, IconRefresh, IconX } from '../components/icons'
-import { SetLogo } from '../components/SetBits'
-import { BackPill, ErrorMessage, Message, ProgressBar, Ring, Screen, Skeleton, TopRow } from '../components/ui'
-import { setColor } from '../data/set-colors'
+import { SetIcon } from '../components/SetBits'
+import { BackPill, ErrorMessage, Message, ProgressBar, Ring, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
+import { customColor, setColor } from '../data/set-colors'
 import { resolveSmartSet } from '../lib/cards'
-import { washFor } from '../lib/color'
-import { mainMoney, useCurrencyMode } from '../lib/money'
+import { alpha } from '../lib/color'
+import { useCurrencyMode } from '../lib/money'
 import { displayPrice } from '../lib/pricing'
 import {
   keys,
@@ -48,7 +48,7 @@ function OfficialSet({ id }: { id: string }) {
   if (!set) {
     return (
       <Screen>
-        <TopRow left={<BackPill label="Sets" fallback="/" />} />
+        <TopRow left={<BackPill label="Sets" to="/sets" />} />
         {sets.error ? <ErrorMessage error={sets.error} retry={() => sets.refetch()} /> : <Message title="Set not found" body="This set isn't in the card list." />}
       </Screen>
     )
@@ -60,7 +60,7 @@ function OfficialSet({ id }: { id: string }) {
     <SetBody
       title={set.name}
       color={color}
-      logo={<SetLogo set={{ kind: 'official', color, code: set.ptcgoCode ?? set.id.toUpperCase(), symbol: set.images.symbol, name: set.name }} size={72} />}
+      logo={<SetIcon set={{ kind: 'official', color, code: set.ptcgoCode ?? set.id.toUpperCase(), name: set.name }} size={64} />}
       badge={`${set.ptcgoCode ?? set.id.toUpperCase()} · ${released}`}
       cards={cards.data}
       loading={cards.isLoading}
@@ -72,7 +72,7 @@ function OfficialSet({ id }: { id: string }) {
       onTrack={() => track.mutate({ setId: set.id, on: true })}
       footer={
         isTracked && (
-          <button type="button" className="mx-auto mt-10 block text-[15px] font-semibold text-ink-2 underline underline-offset-4" onClick={() => track.mutate({ setId: set.id, on: false })}>
+          <button type="button" className="mx-auto mt-6 block text-[13px] font-semibold text-mute underline underline-offset-4" onClick={() => track.mutate({ setId: set.id, on: false })}>
             Stop collecting this set
           </button>
         )
@@ -125,7 +125,7 @@ function CustomSetView({ id }: { id: string }) {
   if (!set) {
     return (
       <Screen>
-        <TopRow left={<BackPill label="Sets" fallback="/" />} />
+        <TopRow left={<BackPill label="Sets" to="/sets" />} />
         <Message title="Set not found" body="It may have been deleted on another device." />
       </Screen>
     )
@@ -134,24 +134,24 @@ function CustomSetView({ id }: { id: string }) {
   const count = memberIds.length
   const editActions = (
     <div className="flex flex-wrap gap-2">
-      <Link to={`/custom/${set.id}/edit`} className="glass pill text-[15px]">
-        <IconEdit size={18} /> Edit set
+      <Link to={`/custom/${set.id}/edit`} className="chip-btn">
+        <IconEdit size={16} /> Edit set
       </Link>
       {set.kind === 'picked' && (
         <>
-          <Link to={`/add?to=${set.id}`} className="glass pill text-[15px]">
-            <IconPlus size={18} /> Add cards
+          <Link to={`/add?to=${set.id}`} className="chip-btn">
+            <IconPlus size={16} /> Add cards
           </Link>
           {count > 0 && (
-            <button type="button" className={`pill text-[15px] ${removing ? 'bg-ink text-white' : 'glass'}`} onClick={() => setRemoving((r) => !r)}>
+            <button type="button" aria-pressed={removing} className="opt chip-btn" onClick={() => setRemoving((r) => !r)}>
               {removing ? 'Done' : 'Remove cards'}
             </button>
           )}
         </>
       )}
       {set.kind === 'smart' && (
-        <button type="button" className="glass pill text-[15px]" onClick={() => refresh(true)} disabled={refreshing}>
-          <IconRefresh size={18} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Updating…' : 'Update'}
+        <button type="button" className="chip-btn" onClick={() => refresh(true)} disabled={refreshing}>
+          <IconRefresh size={16} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Updating…' : 'Update'}
         </button>
       )}
     </div>
@@ -160,8 +160,8 @@ function CustomSetView({ id }: { id: string }) {
   return (
     <SetBody
       title={set.name}
-      color={set.color}
-      logo={<SetLogo set={{ kind: set.kind, color: set.color, code: '', iconCardId: set.icon_card_id, name: set.name }} size={72} />}
+      color={customColor(set.color)}
+      logo={<SetIcon set={{ kind: set.kind, color: customColor(set.color), code: '', iconCardId: set.icon_card_id, name: set.name }} size={64} />}
       badge={`${set.kind === 'smart' ? 'Smart set' : 'Picked'} · ${count} cards`}
       cards={count === 0 ? [] : cards.data ? memberIds.map((cid) => cards.data!.get(cid)).filter((c): c is Card => !!c) : undefined}
       loading={(count > 0 && cards.isLoading) || (refreshing && count === 0)}
@@ -177,13 +177,13 @@ function CustomSetView({ id }: { id: string }) {
             title="No cards yet"
             body="Add the cards you want in this set. Adding them here doesn't mark them as owned."
             action={
-              <button type="button" className="btn-dark mt-2" onClick={() => navigate(`/add?to=${set.id}`)}>
+              <button type="button" className="btn mt-2" onClick={() => navigate(`/add?to=${set.id}`)}>
                 Choose cards
               </button>
             }
           />
         ) : (
-          <Message title="No cards match" body="Try changing the search or what's left out." action={<Link to={`/custom/${set.id}/edit`} className="btn-dark mt-2">Edit set</Link>} />
+          <Message title="No cards match" body="Try changing the search or what's left out." action={<Link to={`/custom/${set.id}/edit`} className="btn mt-2">Edit set</Link>} />
         )
       }
       removable={removing ? (card) => toggleMember.mutate({ setId: set.id, cardId: card.id, on: false }) : undefined}
@@ -259,30 +259,34 @@ function SetBody({
   const missingCount = ids.length ? ids.length - gotCount : 0
 
   return (
-    <Screen wash={washFor(color)}>
-      <TopRow left={<BackPill label="Sets" fallback="/" />} right={<span className="glass pill truncate text-[15px] text-ink-2">{badge}</span>} />
+    <Screen>
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px]" style={{ background: `radial-gradient(60% 50% at 50% 0%, ${alpha(color, 0.22)}, transparent 70%)` }} />
+      <TopRow left={<BackPill label="Sets" to="/sets" />} right={<StatusPill dot={color}>{badge}</StatusPill>} />
 
-      <section className="glass flex flex-col gap-5 p-5 min-[600px]:flex-row min-[600px]:items-center min-[600px]:gap-8 wide:p-7">
-        <div className="min-w-0 flex-1">
+      <section
+        className="relative flex flex-col gap-5 overflow-hidden rounded-[26px] p-5 min-[600px]:flex-row min-[600px]:items-center min-[600px]:gap-8 wide:p-7"
+        style={{ background: `linear-gradient(135deg, ${alpha(color, 0.18)}, rgba(14,10,26,.9) 65%)`, boxShadow: `0 0 0 1px ${alpha(color, 0.4)}, 0 10px 50px ${alpha(color, 0.18)}` }}
+      >
+        <div className="relative min-w-0 flex-1">
           <div className="flex items-center gap-4">
             {logo}
-            <h1 className="min-w-0 text-[32px] leading-tight font-extrabold wide:text-[40px]">{title}</h1>
+            <h1 className="min-w-0 text-[30px] leading-tight font-extrabold tracking-[-.035em] wide:text-[38px]">{title}</h1>
           </div>
           {tracked ? (
             <>
-              <p className="mt-4 text-[17px] font-semibold text-ink-2">
+              <p className="mono mt-4 text-[12px] font-medium text-mute">
                 {gotCount} of {total} cards
-                {value.priced && <> · worth {mainMoney(mode, value.usd, value.eur)}</>}
+                {value.priced && <> · worth {displayPrice(mode, value.usd || null, value.eur || null)}</>}
                 {total - gotCount > 0 && <> · {total - gotCount} to go</>}
               </p>
-              <ProgressBar pct={pct} color={color} className="mt-3" />
+              <ProgressBar pct={pct} color={color} height={8} className="mt-3" />
             </>
           ) : (
             <>
-              <p className="mt-4 text-[17px] font-semibold text-ink-2">
+              <p className="mono mt-4 text-[12px] font-medium text-mute">
                 {total} cards{gotCount > 0 && ` · you already have ${gotCount}`}
               </p>
-              <button type="button" className="btn-dark mt-4 w-full wide:w-auto" onClick={onTrack}>
+              <button type="button" className="cta mt-4 w-full wide:w-auto" onClick={onTrack}>
                 Start collecting this set
               </button>
             </>
@@ -296,30 +300,20 @@ function SetBody({
         )}
       </section>
 
-      <div className="mt-6 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="Filter cards" className="glass inline-flex gap-1 rounded-full p-1">
-          {(
-            [
-              ['all', `All ${ids.length || total}`],
-              ['got', `Got ${gotCount}`],
-              ['missing', `Missing ${missingCount}`],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              role="tab"
-              type="button"
-              aria-selected={filter === v}
-              onClick={() => setFilter(v)}
-              className={`min-h-11 rounded-full px-5 text-[16px] font-semibold ${filter === v ? 'bg-ink text-white' : 'text-ink-2'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented
+          label="Filter cards"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'all', label: `All ${ids.length || total}` },
+            { value: 'got', label: `Got ${gotCount}` },
+            { value: 'missing', label: `Missing ${missingCount}` },
+          ]}
+        />
         {priciest && (
-          <div className="truncate text-[15px] font-semibold text-ink-2">
-            Priciest missing: <span className="text-ink">{priciest.card.name}</span> · {displayPrice(mode, priciest.usd, priciest.eur)}
+          <div className="min-w-0 truncate text-[13px] font-medium text-mute">
+            Priciest missing: <span className="font-semibold text-ink">{priciest.card.name}</span> · <span className="mono">{displayPrice(mode, priciest.usd, priciest.eur)}</span>
           </div>
         )}
       </div>
@@ -327,7 +321,7 @@ function SetBody({
       {loading ? (
         <Grid>
           {Array.from({ length: 14 }, (_, i) => (
-            <Skeleton key={i} className="aspect-[63/88]" />
+            <Skeleton key={i} className="aspect-[63/88] !rounded-xl" />
           ))}
         </Grid>
       ) : error && !sorted?.length ? (
@@ -353,9 +347,10 @@ function SetBody({
                   type="button"
                   onClick={() => removable(card)}
                   aria-label={`Remove ${card.name} from this set`}
-                  className="absolute -top-2 -right-2 grid h-10 w-10 place-items-center rounded-full bg-ink text-white shadow-lg"
+                  className="absolute -top-2 -right-2 grid h-9 w-9 place-items-center rounded-full bg-down text-white"
+                  style={{ boxShadow: '0 0 14px rgba(248,113,113,.6)' }}
                 >
-                  <IconX size={18} />
+                  <IconX size={16} />
                 </button>
               )}
             </div>
@@ -374,8 +369,8 @@ function Grid({ children }: { children: React.ReactNode }) {
 function Loading() {
   return (
     <Screen>
-      <Skeleton className="mb-6 h-11 w-32 rounded-full" />
-      <Skeleton className="h-[200px]" />
+      <Skeleton className="h-10 w-28 !rounded-full" />
+      <Skeleton className="h-[200px] !rounded-[26px]" />
     </Screen>
   )
 }

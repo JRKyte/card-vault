@@ -79,12 +79,6 @@ export const IconRefresh = (p: P) => (
     <path d="M20 20v-4h-4" />
   </Icon>
 )
-export const IconCalendar = (p: P) => (
-  <Icon {...p}>
-    <rect x="3" y="5" width="18" height="16" rx="3" />
-    <path d="M3 10h18M8 3v4M16 3v4" />
-  </Icon>
-)
 export const IconEye = (p: P) => (
   <Icon {...p}>
     <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
@@ -111,12 +105,6 @@ export const IconDownload = (p: P) => (
 export const IconUpload = (p: P) => (
   <Icon {...p}>
     <path d="M12 20V9M7 14l5-5 5 5M5 4h14" />
-  </Icon>
-)
-export const IconWifiOff = (p: P) => (
-  <Icon {...p}>
-    <path d="M3 3l18 18M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 015.2-2.7M19 12.5a10 10 0 00-2.2-1.6M2 8.8a15 15 0 014.4-2.6M22 8.8a15 15 0 00-9.6-3.8" />
-    <circle cx="12" cy="20" r="0.8" fill="currentColor" />
   </Icon>
 )
 export const IconWand = (p: P) => (

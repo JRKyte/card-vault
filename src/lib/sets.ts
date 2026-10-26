@@ -133,3 +133,19 @@ export function snapshotTotals(items: CollectionItem[], cards: ReadonlyMap<strin
 }
 
 const round = (n: number) => Math.round(n * 100) / 100
+
+export type RarityBucket = 'Commons' | 'Uncommons' | 'Rares' | 'Promos'
+
+/** Copies owned in each rarity group, for the Home screen's split bar. */
+export function rarityBuckets(items: CollectionItem[], cards: ReadonlyMap<string, Card>): Record<RarityBucket, number> {
+  const out: Record<RarityBucket, number> = { Commons: 0, Uncommons: 0, Rares: 0, Promos: 0 }
+  for (const i of items) {
+    const card = cards.get(i.card_id)
+    if (!card) continue
+    const r = (card.rarity ?? '').toLowerCase()
+    // Basic Energy and some trainers have no rarity; count them with commons.
+    const bucket: RarityBucket = r === 'promo' || isPromoSet(card) ? 'Promos' : r === 'uncommon' ? 'Uncommons' : r === 'common' || !r ? 'Commons' : 'Rares'
+    out[bucket] += i.quantity
+  }
+  return out
+}

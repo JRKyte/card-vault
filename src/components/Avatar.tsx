@@ -13,7 +13,7 @@ export const initialsOf = (name: string) =>
 /** A card's art cropped into a circle, focused on the Pokémon near the top. */
 export function CardCircle({ src, size, onError }: { src: string; size: number; onError?: () => void }) {
   return (
-    <div className="shrink-0 overflow-hidden rounded-full bg-white" style={{ width: size, height: size }}>
+    <div className="shrink-0 overflow-hidden rounded-full bg-[#1a1428]" style={{ width: size, height: size }}>
       <img src={src} alt="" className="h-full w-full" style={{ objectFit: 'cover', objectPosition: '50% 18%', transform: 'scale(1.9)', transformOrigin: '50% 22%' }} onError={onError} />
     </div>
   )
@@ -21,17 +21,26 @@ export function CardCircle({ src, size, onError }: { src: string; size: number; 
 
 export function InitialsCircle({ name, size }: { name: string; size: number }) {
   return (
-    <div className="grid shrink-0 place-items-center rounded-full bg-ink font-bold text-white" style={{ width: size, height: size, fontSize: size * 0.38 }}>
+    <div className="grid shrink-0 place-items-center rounded-full font-bold text-white" style={{ width: size, height: size, fontSize: size * 0.36, background: 'linear-gradient(135deg,#8b5cf6,#4c1d95)' }}>
       {initialsOf(name)}
     </div>
   )
 }
 
-export function Avatar({ profile, size = 48 }: { profile: Profile; size?: number }) {
+/** The profile avatar. `ring` adds the design's violet glow ring. */
+export function Avatar({ profile, size = 48, ring = false }: { profile: Profile; size?: number; ring?: boolean }) {
   const card = useCard(profile.avatar_mode === 'card' ? (profile.avatar_card_id ?? undefined) : undefined)
   const [failed, setFailed] = useState<string | null>(null)
-  if (profile.avatar_mode === 'card' && card.data && failed !== card.data.id) {
-    return <CardCircle src={card.data.images.small} size={size} onError={() => setFailed(card.data!.id)} />
-  }
-  return <InitialsCircle name={profile.display_name} size={size} />
+  const inner =
+    profile.avatar_mode === 'card' && card.data && failed !== card.data.id ? (
+      <CardCircle src={card.data.images.small} size={size} onError={() => setFailed(card.data!.id)} />
+    ) : (
+      <InitialsCircle name={profile.display_name} size={size} />
+    )
+  if (!ring) return inner
+  return (
+    <div className="shrink-0 rounded-full" style={{ boxShadow: `0 0 0 2px var(--color-accent), 0 0 ${Math.round(size / 2)}px var(--glow)` }}>
+      {inner}
+    </div>
+  )
 }

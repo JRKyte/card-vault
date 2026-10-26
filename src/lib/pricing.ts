@@ -88,21 +88,34 @@ export function bestUsd(card: Card): number | null {
   return best
 }
 
-/** Highest Cardmarket figure for a card; the EUR counterpart of bestUsd. */
+/** Highest EUR price across the card's printings, read the same way as eurFor (trend, else average). */
 export function bestEur(card: Card): number | null {
   const p = card.cardmarket?.prices
   if (!p) return null
-  const values = [p.trendPrice, p.reverseHoloTrend, p.averageSellPrice].map(real).filter((n): n is number => n !== null)
+  const values = [real(p.trendPrice) ?? real(p.averageSellPrice), real(p.reverseHoloTrend)].filter((n): n is number => n !== null)
   return values.length ? Math.max(...values) : null
 }
 
+export type CurrencyMode = 'gbp' | 'usd' | 'eur'
+
+/** A price in the chosen currency as a number. £ is estimated from EUR; null when there's no data. */
+export function inCurrency(mode: CurrencyMode, usd: number | null | undefined, eur: number | null | undefined): number | null {
+  if (mode === 'usd') return usd ?? null
+  if (mode === 'eur') return eur ?? null
+  return eur == null ? null : round(eur * EUR_TO_GBP)
+}
+
+/** Format an amount already in the chosen currency. */
+export const fmtIn = (mode: CurrencyMode, n: number | null | undefined) => (mode === 'usd' ? fmtUsd(n) : mode === 'eur' ? fmtEur(n) : fmtGbp(n))
+
 /**
- * One price for display. EUR mode shows euros; otherwise dollars, falling back to euros when
- * TCGplayer has nothing (common for new sets, which only TCGdex prices).
+ * One price for display. £ (the default) is approximate, from Cardmarket EUR; when a card has no
+ * EUR price it shows dollars instead. USD mode falls back to euros the same way. EUR shows euros only.
  */
-export function displayPrice(mode: 'both' | 'usd' | 'eur', usd: number | null | undefined, eur: number | null | undefined): string {
+export function displayPrice(mode: CurrencyMode, usd: number | null | undefined, eur: number | null | undefined): string {
   if (mode === 'eur') return fmtEur(eur)
-  return usd != null ? fmtUsd(usd) : fmtEur(eur)
+  if (mode === 'usd') return usd != null ? fmtUsd(usd) : fmtEur(eur)
+  return eur != null ? fmtGbp(eur * EUR_TO_GBP) : fmtUsd(usd)
 }
 
 /** Slot for a future "recently sold" source (PriceCharting or similar). Always null for now. */

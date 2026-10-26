@@ -85,10 +85,15 @@ export function MasteredCelebration({ setName, colors, onDone }: { setName: stri
         />
       ))}
       <div className="absolute inset-x-0 top-[38%] flex justify-center px-4">
-        <div className="glass animate-pop px-8 py-6 text-center !bg-white/85">
-          <div className="eyebrow text-ink-2">Set mastered!</div>
-          <div className="mt-1 text-[30px] font-extrabold">{setName}</div>
-          <div className="mt-1 text-[16px] text-ink-2">You've got every card.</div>
+        <div
+          className="animate-pop rounded-[26px] px-8 py-6 text-center text-white"
+          style={{ background: 'linear-gradient(135deg,#2b1458,#160c2b 60%,#0e0a1a)', boxShadow: '0 0 0 1px rgba(167,139,250,.5), 0 0 60px rgba(139,92,246,.5)' }}
+        >
+          <div className="eyebrow !text-accent-2">Set mastered!</div>
+          <div className="mt-1.5 text-[30px] font-extrabold tracking-[-.03em]" style={{ textShadow: '0 0 24px rgba(196,181,253,.6)' }}>
+            {setName}
+          </div>
+          <div className="mt-1 text-[14px] text-[#cbc4dd]">You've got every card.</div>
         </div>
       </div>
     </div>,

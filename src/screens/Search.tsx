@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Thumb } from '../components/cards'
 import { IconCheck, IconChevronRight, IconPlus, IconSearch } from '../components/icons'
-import { BackPill, ErrorMessage, Message, Screen, Segmented, Skeleton, TopRow } from '../components/ui'
+import { BackPill, ErrorMessage, Message, PageHeader, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
 import { draftCards, loadDraft, setDraftCards } from '../lib/draft'
 import { useCurrencyMode } from '../lib/money'
 import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
@@ -71,13 +71,16 @@ export function Search() {
       {picking && (
         <TopRow
           left={<BackPill label={`Back to ${targetName}`} to={pickDraft ? '/custom/new' : `/custom/${toSetId}`} />}
-          right={pickDraft && <span className="glass pill text-[15px] text-ink-2">{draft.length} chosen</span>}
+          right={pickDraft && <StatusPill dot="#a78bfa">{draft.length} chosen</StatusPill>}
         />
       )}
-      <h1 className="mb-5 text-[44px] leading-tight font-extrabold tracking-tight wide:text-[52px]">{picking ? `Add to ${targetName}` : 'Add a card'}</h1>
+      <PageHeader eyebrow={picking ? 'Choose cards' : 'Add'} title={picking ? `Add to ${targetName}` : 'Add a card'} />
 
-      <div className="glass relative !rounded-[22px] !border-2 !border-ink">
-        <IconSearch size={28} className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-ink" />
+      <div
+        className="relative rounded-[22px] border border-[rgba(167,139,250,.45)] bg-[var(--surface)] transition-shadow focus-within:border-accent"
+        style={{ boxShadow: '0 0 0 1px rgba(167,139,250,.15), 0 0 30px rgba(139,92,246,.2)' }}
+      >
+        <IconSearch size={24} className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-accent" />
         <input
           type="search"
           inputMode="search"
@@ -88,18 +91,17 @@ export function Search() {
           placeholder="Card name or number"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          className="min-h-[72px] w-full rounded-[22px] bg-transparent pr-5 pl-16 text-[24px] font-semibold outline-none placeholder:font-medium placeholder:text-muted"
+          className="min-h-16 w-full rounded-[22px] bg-transparent pr-5 pl-14 text-[20px] font-semibold outline-none placeholder:font-medium placeholder:text-mute"
           aria-label="Search cards"
         />
       </div>
 
       {q && (
-        <div className="mt-4 mb-3 flex items-center justify-between gap-3">
-          <div className="truncate text-[16px] font-semibold text-ink-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="mono truncate text-[12px] font-medium text-mute">
             {search.isFetching && !search.data ? 'Searching…' : `${search.data?.totalCount ?? 0} cards match "${debounced.trim()}"`}
           </div>
           <Segmented
-            size="sm"
             label="Search scope"
             value={scope}
             onChange={setScope}
@@ -116,7 +118,7 @@ export function Search() {
       ) : search.isLoading ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-[99px]" />
+            <Skeleton key={i} className="h-[99px] !rounded-[22px]" />
           ))}
         </div>
       ) : search.error && !search.data ? (
@@ -129,16 +131,16 @@ export function Search() {
             picking ? (
               <ResultRow key={c.id} card={c} onClick={() => pick(c)} trailing={<PickButton picked={isPicked(c)} name={targetName} />} />
             ) : (
-              <ResultRow key={c.id} card={c} onClick={() => navigate(`/add/${c.id}`)} trailing={<IconChevronRight className="text-muted" />} />
+              <ResultRow key={c.id} card={c} onClick={() => navigate(`/add/${c.id}`)} trailing={<IconChevronRight className="text-mute" />} />
             ),
           )}
           {(search.data?.totalCount ?? 0) > (search.data?.data.length ?? 0) && (
-            <p className="mt-2 text-center text-[15px] text-ink-2">Showing the newest {search.data?.data.length}. Add more of the name to narrow it down.</p>
+            <p className="mt-2 text-center text-[13px] text-mute">Showing the newest {search.data?.data.length}. Add more of the name to narrow it down.</p>
           )}
         </div>
       )}
 
-      <p className="mt-8 text-center text-[16px] text-ink-2">Can't find it? Try the number on the card, like 128/142</p>
+      <p className="mt-2 text-center text-[13px] text-mute">Can't find it? Try the number on the card, like 128/142</p>
     </Screen>
   )
 }
@@ -146,16 +148,20 @@ export function Search() {
 function ResultRow({ card, onClick, trailing }: { card: Card; onClick: () => void; trailing: React.ReactNode }) {
   const mode = useCurrencyMode()
   return (
-    <button type="button" onClick={onClick} className="glass-flat flex items-center gap-4 p-3 pr-4 text-left transition-transform active:scale-[0.99]">
+    <button
+      type="button"
+      onClick={onClick}
+      className="surface flex items-center gap-3.5 !rounded-[20px] p-2.5 pr-4 text-left transition-[transform,border-color] duration-200 hover:border-accent active:scale-[0.99]"
+    >
       <Thumb card={card} width={54} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[19px] font-bold">{card.name}</div>
-        <div className="truncate text-[15px] text-ink-2">
+        <div className="truncate text-[16px] font-semibold">{card.name}</div>
+        <div className="truncate text-[12.5px] text-mute">
           {card.set.name} · {card.number}
           {card.rarity && ` · ${card.rarity}`}
         </div>
       </div>
-      <div className="shrink-0 text-[16px] font-bold">{displayPrice(mode, bestUsd(card), bestEur(card))}</div>
+      {(bestUsd(card) ?? bestEur(card)) !== null && <div className="mono shrink-0 text-[13px] font-semibold text-up">{displayPrice(mode, bestUsd(card), bestEur(card))}</div>}
       {trailing}
     </button>
   )
@@ -163,8 +169,11 @@ function ResultRow({ card, onClick, trailing }: { card: Card; onClick: () => voi
 
 function PickButton({ picked, name }: { picked: boolean; name: string }) {
   return (
-    <span className={`pill shrink-0 text-[14px] ${picked ? 'bg-up/10 text-up' : 'bg-ink text-white'}`}>
-      {picked ? <IconCheck size={18} /> : <IconPlus size={18} />}
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold ${picked ? 'bg-[rgba(52,211,153,.14)] text-up' : 'bg-sel text-white'}`}
+      style={picked ? undefined : { boxShadow: 'var(--sel-shadow)' }}
+    >
+      {picked ? <IconCheck size={16} /> : <IconPlus size={16} />}
       <span className="hidden sm:inline">{picked ? 'Added' : `Add to ${name}`}</span>
     </span>
   )
@@ -187,19 +196,19 @@ function EmptyPrompt({ picking }: { picking: boolean }) {
   }, [items, cards])
 
   return (
-    <div className="mt-6">
-      <div className="glass-flat p-6 text-center">
-        <div className="text-[22px] font-bold">{picking ? 'Which cards should be in this set?' : 'What did you get?'}</div>
-        <p className="mt-1 text-[16px] text-ink-2">Type a name like "Pikachu", or the number at the bottom of the card.</p>
+    <div className="flex flex-col gap-3">
+      <div className="surface p-6 text-center">
+        <div className="text-[18px] font-bold">{picking ? 'Which cards should be in this set?' : 'What did you get?'}</div>
+        <p className="mt-1 text-[14px] text-mute">Type a name like "Pikachu", or the number at the bottom of the card.</p>
       </div>
       {!picking && recent.length > 0 && (
         <>
-          <h2 className="mt-7 mb-3 text-[20px] font-bold">Add another</h2>
+          <h2 className="mt-3 text-[22px] font-bold tracking-[-.03em]">Add another</h2>
           <div className="grid grid-cols-3 gap-3 min-[600px]:grid-cols-6">
             {recent.map((c) => (
               <Link key={c.id} to={`/add/${c.id}`} className="flex flex-col gap-1.5 transition-transform active:scale-[0.97]">
                 <Thumb card={c} width="100%" />
-                <span className="truncate text-[14px] font-semibold">{c.name}</span>
+                <span className="truncate text-[13px] font-semibold">{c.name}</span>
               </Link>
             ))}
           </div>

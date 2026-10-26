@@ -5,6 +5,7 @@ import {
   itemsValue,
   priciestMissing,
   progress,
+  rarityBuckets,
   setValue,
   snapshotTotals,
   type CollectionItem,
@@ -173,5 +174,19 @@ describe('search query', () => {
     expect(searchQueryFor('128')).toBe('number:128')
     expect(searchQueryFor('7')).toBe('number:7')
     expect(searchQueryFor('p')).toBeNull()
+  })
+})
+
+describe('rarity buckets', () => {
+  it('groups copies by rarity, promos by set', () => {
+    const promo: TcgSet = { ...sv7, id: 'svp', name: 'SV Black Star Promos' }
+    const cards = new Map<string, Card>([
+      ['a', card({ id: 'a', rarity: 'Common' })],
+      ['b', card({ id: 'b', rarity: 'Uncommon' })],
+      ['c', card({ id: 'c', rarity: 'Illustration Rare' })],
+      ['d', card({ id: 'd', rarity: 'Rare', set: promo })],
+      ['e', card({ id: 'e' })],
+    ])
+    expect(rarityBuckets([item('a', { quantity: 2 }), item('b'), item('c'), item('d'), item('e')], cards)).toEqual({ Commons: 3, Uncommons: 1, Rares: 1, Promos: 1 })
   })
 })

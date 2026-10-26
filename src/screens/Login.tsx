@@ -29,33 +29,33 @@ export function Login() {
 
   return (
     <Screen className="flex min-h-dvh items-center justify-center !pb-10">
-      <div className="glass animate-fade-up w-full max-w-[460px] p-8">
-        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="mb-6 h-16 w-16 rounded-[18px]" />
-        <h1 className="text-[40px] leading-tight font-extrabold">Card Vault</h1>
-        <p className="mt-1 mb-7 text-[17px] text-ink-2">Your cards, your sets.</p>
+      <div className="surface animate-fade-up w-full max-w-[440px] p-7" style={{ boxShadow: '0 0 0 1px rgba(167,139,250,.25), 0 20px 80px rgba(139,92,246,.25)' }}>
+        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="mb-6 h-16 w-16 rounded-[16px]" style={{ boxShadow: '0 0 30px rgba(139,92,246,.45)' }} />
+        <h1 className="title">Card Vault</h1>
+        <p className="mt-2 mb-7 text-[15px] text-mute">Your cards, your sets.</p>
 
         {store.mode === 'local' ? (
           <>
-            <p className="mb-5 rounded-2xl bg-ink/5 p-4 text-[15px] text-ink-2">
+            <p className="mb-5 rounded-2xl bg-[var(--chip)] p-4 text-[13px] text-mute">
               Supabase isn't set up yet, so cards are saved on this device only. Add the keys from the README to sync between devices.
             </p>
-            <button type="button" className="btn-dark w-full" onClick={() => submit({ preventDefault() {} } as React.FormEvent)} disabled={busy}>
+            <button type="button" className="cta w-full" onClick={() => submit({ preventDefault() {} } as React.FormEvent)} disabled={busy}>
               Start on this device
             </button>
           </>
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-2">
-              <span className="text-[15px] font-semibold text-ink-2">Email</span>
+              <span className="eyebrow">Email</span>
               <input className="field" type="email" autoComplete="username" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className="flex flex-col gap-2">
-              <span className="text-[15px] font-semibold text-ink-2">Password</span>
+              <span className="eyebrow">Password</span>
               <div className="relative">
                 <input className="field pr-16" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 <button
                   type="button"
-                  className="absolute top-1/2 right-2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full text-ink-2"
+                  className="absolute top-1/2 right-1 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-mute"
                   onClick={() => setShow((s) => !s)}
                   aria-label={show ? 'Hide password' : 'Show password'}
                 >
@@ -68,7 +68,7 @@ export function Login() {
                 {error}
               </p>
             )}
-            <button type="submit" className="btn-dark mt-2 w-full" disabled={busy || !email || !password}>
+            <button type="submit" className="cta mt-2 w-full" disabled={busy || !email || !password}>
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>

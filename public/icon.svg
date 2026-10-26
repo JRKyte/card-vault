@@ -1,21 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360">
+  <!-- Card Vault icon: two fanned cards and a vault dial. Full-bleed square; platforms round the corners. -->
   <defs>
-    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFE07A"/>
-      <stop offset="1" stop-color="#F2B705"/>
+    <radialGradient id="bg" cx="50%" cy="28%" r="75%" fy="28%">
+      <stop offset="0" stop-color="#3d1d80"/>
+      <stop offset=".62" stop-color="#150b2c"/>
+      <stop offset="1" stop-color="#08060f"/>
+    </radialGradient>
+    <radialGradient id="ambient">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity=".45"/>
+      <stop offset=".65" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="front" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#2d175e"/>
+      <stop offset="1" stop-color="#120a26"/>
     </linearGradient>
-    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#A9D6F7"/>
-      <stop offset="1" stop-color="#3B6FD6"/>
-    </linearGradient>
+    <filter id="glow-pink" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-violet" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="13" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-gold" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect width="512" height="512" fill="#15172B"/>
-  <g transform="rotate(-12 256 256)">
-    <rect x="130" y="118" width="190" height="264" rx="22" fill="url(#b)" opacity="0.9"/>
+  <rect width="360" height="360" fill="url(#bg)"/>
+  <circle cx="180" cy="187" r="130" fill="url(#ambient)"/>
+
+  <!-- Back card, pink -->
+  <g transform="rotate(-13 158 181)">
+    <rect x="85.5" y="79.5" width="145" height="203" rx="20.5" fill="#f472b6" fill-opacity=".08" stroke="#f472b6" stroke-opacity=".85" stroke-width="3" filter="url(#glow-pink)"/>
   </g>
-  <g transform="rotate(8 256 256)">
-    <rect x="196" y="132" width="190" height="264" rx="22" fill="url(#a)"/>
-    <rect x="214" y="150" width="154" height="228" rx="12" fill="none" stroke="#15172B" stroke-opacity="0.18" stroke-width="6"/>
-    <path d="M291 206l17 34 37 5-27 26 7 37-34-18-34 18 7-37-27-26 37-5z" fill="#15172B"/>
+
+  <!-- Front card, violet, with the vault dial -->
+  <g transform="rotate(7 196 179)">
+    <rect x="123.5" y="77.5" width="145" height="203" rx="20.5" fill="url(#front)" stroke="#c4b5fd" stroke-width="3" filter="url(#glow-violet)"/>
+    <g filter="url(#glow-gold)">
+      <circle cx="196" cy="179" r="42.5" fill="none" stroke="#fde68a" stroke-width="7"/>
+      <rect x="193" y="151" width="6" height="56" rx="3" fill="#fde68a"/>
+      <rect x="168" y="176" width="56" height="6" rx="3" fill="#fde68a"/>
+      <circle cx="196" cy="179" r="11" fill="#fff7d6"/>
+    </g>
   </g>
 </svg>

@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Avatar, CardCircle, InitialsCircle } from '../components/Avatar'
 import { IconCheck, IconDownload, IconEdit, IconEye, IconEyeOff, IconRefresh, IconUpload } from '../components/icons'
 import { BackPill, Modal, Screen, Segmented, TopRow } from '../components/ui'
+import { fromStored, toStored, type CurrencyMode } from '../lib/money'
 import { AVATAR_OPTIONS } from '../data/avatar-options'
 import { loadCards } from '../lib/cards'
 import { DEFAULT_PROFILE, keys, useCards, useCollection, useCustomMembership, useCustomSets, useProfile, useSaveProfile, useTracked, useUser } from '../lib/queries'
@@ -17,18 +18,18 @@ export function Settings() {
 
   return (
     <Screen>
-      <TopRow left={<BackPill label="Back" fallback="/" />} />
-      <h1 className="mb-6 text-[44px] leading-tight font-extrabold tracking-tight">Settings</h1>
-      <div className="grid grid-cols-1 gap-4 wide:grid-cols-2 wide:items-start">
-        <div className="flex flex-col gap-4">
+      <TopRow left={<BackPill label="Back" to="/" />} />
+      <h1 className="title">Settings</h1>
+      <div className="flex flex-wrap items-start gap-3.5">
+        <div className="flex max-w-[560px] flex-[1_1_380px] flex-col gap-3.5">
           {/* Keyed on the name so the field refreshes once the profile loads. */}
           <Account key={profile.display_name} profile={profile} set={set} />
-          <Preferences profile={profile} set={set} />
+          <AvatarPicker profile={profile} set={set} />
         </div>
-        <AvatarPicker profile={profile} set={set} />
+        <Preferences profile={profile} set={set} />
       </div>
-      <footer className="mt-10 text-center text-[14px] text-muted">
-        Card Vault {__APP_VERSION__} · Card data from pokemontcg.io
+      <footer className="mono mt-4 text-center text-[11px] text-mute">
+        Card Vault {__APP_VERSION__} · Card data from pokemontcg.io and TCGdex
       </footer>
     </Screen>
   )
@@ -46,9 +47,10 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
     else setName(profile.display_name)
   }
   return (
-    <section className="glass p-5">
-      <div className="flex items-center gap-5">
-        <Avatar profile={profile} size={88} />
+    <section className="surface relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute -top-10 -left-[30px] h-[180px] w-[180px] rounded-full" style={{ background: 'radial-gradient(circle, var(--glow), transparent 65%)' }} />
+      <div className="relative flex items-center gap-4">
+        <Avatar profile={profile} size={68} ring />
         <div className="min-w-0 flex-1">
           <input
             ref={nameRef}
@@ -58,31 +60,31 @@ function Account({ profile, set }: { profile: Profile; set: (p: Partial<Profile>
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             aria-label="Your name"
             maxLength={30}
-            className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[26px] font-extrabold outline-none focus:bg-white/70"
+            className="-ml-2 w-full rounded-xl bg-transparent px-2 py-1 text-[20px] font-bold tracking-[-.02em] outline-none focus:bg-[var(--chip)] focus:shadow-[0_0_0_1px_var(--color-accent)]"
           />
-          {store.mode === 'supabase' && <div className="truncate text-[15px] text-ink-2">{user.data?.email}</div>}
-          {store.mode === 'local' && <div className="text-[14px] font-semibold text-muted">Saved on this device only</div>}
+          {store.mode === 'supabase' && <div className="truncate text-[13px] text-mute">{user.data?.email}</div>}
+          {store.mode === 'local' && <div className="text-[13px] text-mute">Saved on this device only</div>}
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="relative mt-4 flex flex-wrap gap-2">
         <button
           type="button"
-          className="pill bg-white/70 text-[15px]"
+          className="chip-btn"
           onClick={() => {
             nameRef.current?.focus()
             nameRef.current?.select()
           }}
         >
-          <IconEdit size={18} /> Change name
+          <IconEdit size={15} /> Change name
         </button>
         {store.mode === 'supabase' && (
-          <button type="button" className="pill bg-white/70 text-[15px]" onClick={() => setPasswordOpen(true)}>
+          <button type="button" className="chip-btn" onClick={() => setPasswordOpen(true)}>
             Change password
           </button>
         )}
         <button
           type="button"
-          className="pill ml-auto bg-ink text-[15px] text-white"
+          className="chip-btn ml-auto"
           onClick={async () => {
             if (!confirm('Sign out of Card Vault on this device?')) return
             await store.signOut()
@@ -130,8 +132,8 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
 
   const field = (label: string, value: string, onChange: (v: string) => void, autoComplete: string) => (
     <label className="flex flex-col gap-2">
-      <span className="text-[15px] font-semibold text-ink-2">{label}</span>
-      <input className="field !min-h-14 !text-[18px]" type={show ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} />
+      <span className="eyebrow">{label}</span>
+      <input className="field" type={show ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
 
@@ -139,12 +141,12 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
     <Modal onClose={onClose} title="Change password">
       {done ? (
         <div className="flex flex-col items-center gap-3 p-8 text-center">
-          <div className="grid h-14 w-14 place-items-center rounded-full bg-up/10 text-up">
+          <div className="grid h-14 w-14 place-items-center rounded-full bg-[rgba(52,211,153,.14)] text-up" style={{ boxShadow: '0 0 24px rgba(52,211,153,.3)' }}>
             <IconCheck />
           </div>
           <h2 className="text-[24px] font-extrabold">Password changed</h2>
-          <p className="text-[16px] text-ink-2">Use the new password next time you sign in on another device.</p>
-          <button type="button" className="btn-dark mt-2" onClick={onClose}>
+          <p className="text-[14px] text-mute">Use the new password next time you sign in on another device.</p>
+          <button type="button" className="btn mt-2" onClick={onClose}>
             Done
           </button>
         </div>
@@ -152,7 +154,7 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
         <form onSubmit={submit} className="flex flex-col gap-4 overflow-y-auto p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[24px] font-extrabold">Change password</h2>
-            <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-ink-2" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide passwords' : 'Show passwords'}>
+            <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-mute hover:bg-[var(--chip)]" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide passwords' : 'Show passwords'}>
               {show ? <IconEyeOff /> : <IconEye />}
             </button>
           </div>
@@ -160,15 +162,15 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
           {field('New password', next, setNext, 'new-password')}
           {field('New password again', confirmNext, setConfirmNext, 'new-password')}
           {(error ?? problem) && (
-            <p role="alert" className="text-[15px] font-semibold text-down">
+            <p role="alert" className="text-[13px] font-semibold text-down">
               {error ?? problem}
             </p>
           )}
           <div className="mt-1 flex gap-3">
-            <button type="button" className="pill bg-white/70 text-[16px]" onClick={onClose}>
+            <button type="button" className="chip-btn !min-h-12" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-dark flex-1 !min-h-12 !text-[17px]" disabled={!ready || busy}>
+            <button type="submit" className="btn flex-1" disabled={!ready || busy}>
               {busy ? 'Saving…' : 'Save new password'}
             </button>
           </div>
@@ -201,23 +203,23 @@ function AvatarPicker({ profile, set }: { profile: Profile; set: (p: Partial<Pro
   const cards = useCards(ids)
 
   return (
-    <section className="glass p-5">
-      <h2 className="mb-4 text-[22px] font-bold">Pick your Pokémon</h2>
-      <div className="grid grid-cols-5 gap-3">
+    <section className="surface flex flex-col gap-3.5 p-5">
+      <h2 className="text-[15px] font-semibold">Pick your Pokémon</h2>
+      <div className="flex flex-wrap gap-3.5">
         <Option active={profile.avatar_mode === 'initials'} label="Initials" onClick={() => set({ avatar_mode: 'initials', avatar_card_id: null })}>
-          <InitialsCircle name={profile.display_name} size={72} />
+          <InitialsCircle name={profile.display_name} size={64} />
         </Option>
         {AVATAR_OPTIONS.map((o) => {
           const id = resolved.data?.[o.name]
           const card = id ? cards.data?.get(id) : undefined
           return (
             <Option key={o.name} active={profile.avatar_mode === 'card' && profile.avatar_card_id === id} label={o.name} onClick={() => id && set({ avatar_mode: 'card', avatar_card_id: id })}>
-              {card ? <FallbackCircle card={card} name={o.name} /> : <div className="skeleton h-[72px] w-[72px] !rounded-full" />}
+              {card ? <FallbackCircle card={card} name={o.name} /> : <div className="skeleton h-16 w-16 !rounded-full" />}
             </Option>
           )
         })}
       </div>
-      <button type="button" className="pill mt-5 bg-white/70 text-[16px]" onClick={() => setMine(true)}>
+      <button type="button" className="chip-btn self-start" onClick={() => setMine(true)}>
         Use one of my cards
       </button>
       {mine && (
@@ -235,21 +237,21 @@ function AvatarPicker({ profile, set }: { profile: Profile; set: (p: Partial<Pro
 
 function FallbackCircle({ card, name }: { card: Card; name: string }) {
   const [failed, setFailed] = useState(false)
-  return failed ? <InitialsCircle name={name} size={72} /> : <CardCircle src={card.images.small} size={72} onError={() => setFailed(true)} />
+  return failed ? <InitialsCircle name={name} size={64} /> : <CardCircle src={card.images.small} size={64} onError={() => setFailed(true)} />
 }
 
 function Option({ active, label, onClick, children }: { active: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={active} onClick={onClick} className="flex min-w-0 flex-col items-center gap-1.5">
-      <div className="relative rounded-full" style={{ boxShadow: active ? '0 0 0 3px white, 0 0 0 6px #15172B' : undefined }}>
-        {children}
-        {active && (
-          <span className="absolute -right-1 -bottom-1 grid h-7 w-7 place-items-center rounded-full bg-ink text-white">
-            <IconCheck size={16} />
-          </span>
-        )}
-      </div>
-      <span className="w-full truncate text-center text-[13px] font-semibold text-ink-2">{label}</span>
+    <button
+      type="button"
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="rounded-full transition-all duration-200"
+      style={{ boxShadow: active ? '0 0 0 2px var(--color-accent), 0 0 22px var(--glow)' : '0 0 0 1px var(--line)', opacity: active ? 1 : 0.6 }}
+    >
+      {children}
     </button>
   )
 }
@@ -263,17 +265,17 @@ function MyCardPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: Ca
   return (
     <Modal onClose={onClose} title="Use one of my cards">
       <div className="p-5 pb-2">
-        <h2 className="text-[24px] font-extrabold">Use one of my cards</h2>
+        <h2 className="text-[22px] font-extrabold tracking-tight">Use one of my cards</h2>
       </div>
       <div className="overflow-y-auto p-5 pt-2">
         {list.length === 0 ? (
-          <p className="py-8 text-center text-ink-2">Add some cards first, then pick your favourite here.</p>
+          <p className="py-8 text-center text-mute">Add some cards first, then pick your favourite here.</p>
         ) : (
           <div className="grid grid-cols-4 gap-4 min-[600px]:grid-cols-5">
             {list.map((c) => (
               <button key={c.id} type="button" className="flex flex-col items-center gap-1.5" onClick={() => onPick(c)}>
                 <CardCircle src={c.images.small} size={72} />
-                <span className="w-full truncate text-center text-[13px] font-semibold text-ink-2">{c.name}</span>
+                <span className="w-full truncate text-center text-[12px] font-medium text-mute">{c.name}</span>
               </button>
             ))}
           </div>
@@ -302,7 +304,9 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
 
   const priceDate = useMemo(() => {
     let newest = ''
-    for (const c of cards.values()) if (c.tcgplayer?.updatedAt && c.tcgplayer.updatedAt > newest) newest = c.tcgplayer.updatedAt
+    for (const c of cards.values()) {
+      for (const d of [c.tcgplayer?.updatedAt, c.cardmarket?.updatedAt]) if (d && d > newest) newest = d
+    }
     return newest ? new Date(newest.replace(/\//g, '-') + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null
   }, [cards])
 
@@ -370,28 +374,27 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
   }
 
   return (
-    <section className="glass divide-y divide-ink/8 px-5">
-      <Row label="Show prices in">
-        <Segmented
-          size="sm"
+    <section className="surface flex flex-[1.4_1_360px] flex-col divide-y divide-[var(--line)] px-5 py-1">
+      <Row label="Show prices in" sub={fromStored(profile.currency_display) === 'gbp' ? 'Pounds are approximate (EUR × 0.85)' : undefined}>
+        <Segmented<CurrencyMode>
           label="Show prices in"
-          value={profile.currency_display}
-          onChange={(v) => set({ currency_display: v })}
+          value={fromStored(profile.currency_display)}
+          onChange={(v) => set({ currency_display: toStored(v) })}
           options={[
-            { value: 'both', label: 'Both' },
+            { value: 'gbp', label: 'GBP' },
             { value: 'usd', label: 'USD' },
             { value: 'eur', label: 'EUR' },
           ]}
         />
       </Row>
       <Row label="Export collection">
-        <button type="button" className="pill bg-white/70 text-[15px]" onClick={exportJson}>
-          <IconDownload size={18} /> Download JSON
+        <button type="button" className="chip-btn" onClick={exportJson}>
+          <IconDownload size={15} /> Download JSON
         </button>
       </Row>
       <Row label="Import collection">
-        <button type="button" className="pill bg-white/70 text-[15px]" onClick={() => fileRef.current?.click()}>
-          <IconUpload size={18} /> Choose file
+        <button type="button" className="chip-btn" onClick={() => fileRef.current?.click()}>
+          <IconUpload size={15} /> Choose file
         </button>
         <input
           ref={fileRef}
@@ -406,11 +409,11 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
         />
       </Row>
       <Row label="Prices last updated" sub={priceDate ?? 'No prices yet'}>
-        <button type="button" className="pill bg-white/70 text-[15px]" onClick={refresh} disabled={refreshing || !items.length}>
-          <IconRefresh size={18} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Refreshing…' : 'Refresh now'}
+        <button type="button" className="chip-btn" onClick={refresh} disabled={refreshing || !items.length}>
+          <IconRefresh size={15} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Refreshing…' : 'Refresh now'}
         </button>
       </Row>
-      <Row label="Card data API key" sub="Optional. Saved on this device.">
+      <Row label="Card data API key" sub="Optional. Saved on this device." stacked>
         <input
           type="password"
           value={key}
@@ -425,21 +428,21 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
               // Storage blocked.
             }
           }}
-          className="min-h-11 w-[170px] rounded-full bg-white/70 px-4 text-[15px] outline-none"
+          className="field mono !h-[46px] !text-[13px]"
           aria-label="pokemontcg.io API key"
         />
       </Row>
-      {note && <p className="py-3 text-[15px] font-semibold text-ink-2">{note}</p>}
+      {note && <p className="py-3 text-[13px] font-semibold text-accent-2">{note}</p>}
     </section>
   )
 }
 
-function Row({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
+function Row({ label, sub, stacked, children }: { label: string; sub?: string; stacked?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[68px] flex-wrap items-center justify-between gap-3 py-3">
-      <div>
-        <div className="text-[17px] font-semibold">{label}</div>
-        {sub && <div className="text-[14px] text-ink-2">{sub}</div>}
+    <div className={`flex gap-3 py-4 ${stacked ? 'flex-col' : 'flex-wrap items-center justify-between'}`}>
+      <div className="flex flex-col gap-[3px]">
+        <span className="text-[14.5px] font-semibold">{label}</span>
+        {sub && <span className="text-[12.5px] text-mute">{sub}</span>}
       </div>
       <div className="flex items-center">{children}</div>
     </div>

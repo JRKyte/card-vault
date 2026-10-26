@@ -1,86 +1,98 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { alpha } from '../lib/color'
-import { fmtUsd } from '../lib/pricing'
 import { useCard } from '../lib/queries'
 import type { SetSummary } from '../lib/summaries'
-import { IconPlus, IconStar } from './icons'
-import { ProgressBar } from './ui'
+import { IconStar } from './icons'
+import { ProgressBar, tint } from './ui'
 
-/** Rounded square for official sets (symbol or code), circle for custom sets (icon card or star). */
-export function SetLogo({ set, size = 64 }: { set: Pick<SetSummary, 'kind' | 'color' | 'code' | 'symbol' | 'iconCardId' | 'name'>; size?: number }) {
-  const [failed, setFailed] = useState(false)
-  if (set.kind !== 'official') return <CustomIcon set={set} size={size} />
-  return (
-    <div className="grid shrink-0 place-items-center" style={{ width: size, height: size, borderRadius: size * 0.28, background: set.color }}>
-      {set.symbol && !failed ? (
-        // Symbols are small badges with their own colours, so sit them on a white tile.
-        <div className="grid place-items-center bg-white/92 shadow-sm" style={{ width: size * 0.62, height: size * 0.62, borderRadius: size * 0.18 }}>
-          <img src={set.symbol} alt="" className="object-contain" style={{ width: size * 0.46, height: size * 0.46 }} onError={() => setFailed(true)} />
-        </div>
-      ) : (
-        <span className="font-extrabold text-white" style={{ fontSize: size * 0.24 }}>
-          {set.code}
-        </span>
-      )}
-    </div>
-  )
-}
+type IconSet = Pick<SetSummary, 'kind' | 'color' | 'code' | 'iconCardId' | 'name'>
 
-function CustomIcon({ set, size }: { set: Pick<SetSummary, 'color' | 'iconCardId'>; size: number }) {
-  const card = useCard(set.iconCardId ?? undefined)
+/** Set icon with a ring and glow in the set colour: the set code, or a custom set's card art. */
+export function SetIcon({ set, size = 58, round = false }: { set: IconSet; size?: number; round?: boolean }) {
+  const card = useCard(set.kind !== 'official' ? (set.iconCardId ?? undefined) : undefined)
   const [failed, setFailed] = useState(false)
   return (
-    <div className="grid shrink-0 place-items-center overflow-hidden rounded-full" style={{ width: size, height: size, background: set.color }}>
+    <div
+      className="grid shrink-0 place-items-center overflow-hidden"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: round ? '50%' : size * 0.31,
+        background: alpha(set.color, 0.15),
+        boxShadow: `0 0 0 1.5px ${set.color}, 0 0 ${Math.round(size * 0.4)}px ${alpha(set.color, 0.45)}`,
+      }}
+    >
       {card.data && !failed ? (
-        <img src={card.data.images.small} alt="" className="h-full w-full object-cover" style={{ objectPosition: '50% 18%', transform: 'scale(1.6)' }} onError={() => setFailed(true)} />
+        <img src={card.data.images.small} alt="" className="h-full w-full object-cover" style={{ objectPosition: '50% 18%', transform: 'scale(1.7)', transformOrigin: '50% 22%' }} onError={() => setFailed(true)} />
+      ) : set.kind === 'official' ? (
+        <span className="mono font-semibold" style={{ color: set.color, fontSize: Math.max(10, size * 0.21) }}>
+          {set.code.slice(0, 4)}
+        </span>
       ) : (
-        <IconStar size={size * 0.45} className="text-white" />
+        <IconStar size={size * 0.42} style={{ color: set.color }} />
       )}
     </div>
   )
 }
 
+const pctLabel = (s: SetSummary) => (s.progress.owned && s.progress.pct < 1 ? '<1%' : `${s.progress.pct}%`)
+
+/** A row on the Sets tab. */
 export function SetRow({ set }: { set: SetSummary }) {
   const untracked = set.kind === 'official' && !set.tracked
   return (
-    <Link to={set.href} className="glass-flat flex items-center gap-4 p-3.5 pr-5 transition-transform active:scale-[0.99]">
-      <SetLogo set={set} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[19px] font-bold">{set.name}</span>
-            {set.kind !== 'official' && (
-              <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider" style={{ background: alpha(set.color, 0.14), color: set.color }}>
-                {set.kind === 'smart' ? 'SMART SET' : 'PICKED'}
-              </span>
-            )}
-          </div>
-          {!untracked && (
-            <span className="shrink-0 text-[14px] font-semibold text-ink-2">
-              {set.progress.owned} / {set.progress.total}
-              {set.value.priced && <> · {fmtUsd(set.value.usd)}</>}
+    <Link
+      to={set.href}
+      className="surface flex items-center gap-3.5 !rounded-[22px] p-3.5 transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-accent"
+    >
+      <SetIcon set={set} />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[15px] font-semibold tracking-tight">{set.name}</span>
+          {set.kind !== 'official' && (
+            <span className="mono flex-none rounded-full px-[7px] py-[3px] text-[9.5px] font-semibold tracking-[.1em]" style={{ background: alpha(set.color, 0.16), color: tint(set.color) }}>
+              {set.kind === 'smart' ? 'SMART' : 'PICKED'}
             </span>
           )}
         </div>
-        {untracked ? (
-          <div className="mt-1.5 text-[14px] text-ink-2">
-            {set.progress.total} cards{set.releaseDate && ` · ${set.releaseDate.slice(0, 4)}`}
-            {set.progress.owned > 0 && ` · you have ${set.progress.owned}`}
-          </div>
-        ) : (
-          <ProgressBar pct={set.progress.pct} color={set.color} className="mt-2.5" />
-        )}
+        <ProgressBar pct={untracked ? 0 : set.progress.pct} color={set.color} />
+        <span className="mono text-[11.5px] font-medium text-mute">
+          {set.progress.owned} / {set.progress.total}
+          {untracked && set.releaseDate && ` · ${set.releaseDate.slice(0, 4)}`}
+        </span>
       </div>
       {untracked ? (
-        <span className="pill shrink-0 bg-ink/5 text-[15px]">
-          <IconPlus size={18} /> Track
-        </span>
+        <span className="mono flex-none rounded-full bg-[var(--chip)] px-3 py-2 text-[11px] font-semibold text-accent">TRACK</span>
       ) : (
-        <span className="w-[72px] shrink-0 text-right text-[30px] font-extrabold" style={{ color: set.color }}>
-          {set.progress.pct}%
-        </span>
+        <span className="min-w-[52px] flex-none text-right text-[22px] font-bold tracking-tight">{pctLabel(set)}</span>
       )}
+    </Link>
+  )
+}
+
+/** A tile in the Home screen's "Recent sets" scroller. */
+export function RecentSetTile({ set }: { set: SetSummary }) {
+  return (
+    <Link
+      to={set.href}
+      className="flex flex-col gap-3 rounded-[22px] p-3.5 transition-[transform,box-shadow] duration-200 hover:-translate-y-[3px]"
+      style={{
+        border: `1px solid ${alpha(set.color, 0.35)}`,
+        background: `radial-gradient(120% 70% at 50% 0%, ${alpha(set.color, 0.15)}, transparent 75%), var(--surface)`,
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <SetIcon set={set} size={46} round />
+        <span className="text-[20px] font-bold tracking-tight">{pctLabel(set)}</span>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="truncate text-[14px] font-semibold">{set.name}</span>
+        <span className="mono text-[11px] font-medium text-mute">
+          {set.progress.owned} / {set.progress.total}
+        </span>
+      </div>
+      <ProgressBar pct={set.progress.pct} color={set.color} height={5} />
     </Link>
   )
 }

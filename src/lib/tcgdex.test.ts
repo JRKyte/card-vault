@@ -83,9 +83,12 @@ describe('cards with only EUR prices', () => {
   })
 
   it('display falls back to EUR when there is no USD', () => {
-    expect(displayPrice('both', null, 3.2)).toBe('€3.20')
+    expect(displayPrice('usd', null, 3.2)).toBe('€3.20')
     expect(displayPrice('usd', 1.5, 3.2)).toBe('$1.50')
     expect(displayPrice('eur', 1.5, null)).toBe('—')
+    expect(displayPrice('gbp', 1.5, 4)).toBe('£3.40')
+    expect(displayPrice('gbp', 1.5, null)).toBe('$1.50')
+    expect(displayPrice('gbp', null, null)).toBe('—')
   })
 
   it('still finds the priciest missing card', () => {

@@ -4,9 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Thumb } from '../components/cards'
 import { IconCheck, IconHand, IconWand, IconX } from '../components/icons'
 import { BackPill, ErrorMessage, Message, Screen, Skeleton, TopRow } from '../components/ui'
-import { CUSTOM_SET_SWATCHES } from '../data/set-colors'
+import { CUSTOM_SET_SWATCHES, customColor } from '../data/set-colors'
 import { runSmartQuery, smartQueryFor, termFromQuery } from '../lib/cards'
-import { alpha, washFor } from '../lib/color'
+import { alpha } from '../lib/color'
 import { clearDraft, loadDraft, saveDraft, type Draft } from '../lib/draft'
 import { useCurrencyMode } from '../lib/money'
 import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
@@ -26,7 +26,7 @@ export function CustomSetEditor() {
   if (customSets.isLoading) {
     return (
       <Screen>
-        <Skeleton className="h-[300px]" />
+        <Skeleton className="h-[300px] !rounded-[26px]" />
       </Screen>
     )
   }
@@ -43,7 +43,7 @@ export function CustomSetEditor() {
     <Editor
       key={set.id}
       editId={set.id}
-      initial={{ name: set.name, color: set.color, kind: set.kind, term: termFromQuery(set.query), exclusions: { ...DEFAULT_EXCLUSIONS, ...(set.exclusions ?? {}) }, cards: [] }}
+      initial={{ name: set.name, color: customColor(set.color), kind: set.kind, term: termFromQuery(set.query), exclusions: { ...DEFAULT_EXCLUSIONS, ...(set.exclusions ?? {}) }, cards: [] }}
       original={set}
     />
   )
@@ -111,26 +111,26 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
   const error = create.error ?? save.error
 
   return (
-    <Screen wash={washFor(d.color)}>
+    <Screen glow={d.color}>
       <TopRow
         left={
           <button
             type="button"
-            className="glass pill text-[16px]"
+            className="chip-btn !pl-3"
             onClick={() => {
               if (!editId) clearDraft()
               navigate(editId ? `/custom/${editId}` : '/', { replace: true })
             }}
           >
-            <IconX size={18} /> Cancel
+            <IconX size={15} /> Cancel
           </button>
         }
       />
-      <h1 className="mb-6 text-[44px] leading-tight font-extrabold tracking-tight">{editId ? 'Edit set' : 'New custom set'}</h1>
+      <h1 className="title">{editId ? 'Edit set' : 'New custom set'}</h1>
 
       <div className="flex flex-col gap-4 min-[600px]:flex-row min-[600px]:items-center">
-        <input className="field flex-1" placeholder="Set name, like Every Pikachu" value={d.name} onChange={(e) => update({ name: e.target.value })} aria-label="Set name" maxLength={40} />
-        <div className="flex gap-2.5" role="radiogroup" aria-label="Colour">
+        <input className="field min-[600px]:flex-1" placeholder="Set name, like Every Pikachu" value={d.name} onChange={(e) => update({ name: e.target.value })} aria-label="Set name" maxLength={40} />
+        <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Colour">
           {CUSTOM_SET_SWATCHES.map((s) => {
             const active = s.hex.toLowerCase() === d.color.toLowerCase()
             return (
@@ -141,10 +141,10 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
                 aria-checked={active}
                 aria-label={s.name}
                 onClick={() => update({ color: s.hex })}
-                className="grid h-14 w-14 place-items-center rounded-full transition-transform active:scale-95"
-                style={{ background: s.hex, boxShadow: active ? `0 0 0 3px white, 0 0 0 6px #15172B` : undefined }}
+                className="grid h-11 w-11 place-items-center rounded-full transition-all active:scale-95"
+                style={{ background: s.hex, boxShadow: active ? `0 0 0 3px #0b0912, 0 0 0 5px ${s.hex}, 0 0 22px ${s.hex}` : `0 0 12px ${alpha(s.hex, 0.4)}` }}
               >
-                {active && <IconCheck className="text-white" />}
+                {active && <IconCheck size={18} className="text-[#0b0912]" />}
               </button>
             )
           })}
@@ -153,7 +153,7 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
 
       {!editId && (
         <>
-          <h2 className="mt-8 mb-3 text-[22px] font-bold">How do cards get in?</h2>
+          <h2 className="mt-2 mb-1 text-[22px] font-bold tracking-[-.03em]">How do cards get in?</h2>
           <div className="grid grid-cols-1 gap-3 min-[600px]:grid-cols-2">
             <KindCard
               active={d.kind === 'smart'}
@@ -175,7 +175,7 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
         </>
       )}
 
-      <div className="mt-5">
+      <div>
         {d.kind === 'smart' ? (
           <SmartPanel d={d} update={update} color={d.color} preview={preview} hasQuery={!!query} />
         ) : editId ? (
@@ -185,17 +185,17 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
         )}
       </div>
 
-      {error && <p className="mt-4 text-[15px] font-semibold text-down">Couldn't save the set. Check your connection and try again.</p>}
+      {error && <p className="text-[13px] font-semibold text-down">Couldn't save the set. Check your connection and try again.</p>}
 
-      <button type="button" className="btn-dark mt-6 w-full" disabled={!canSave || busy} onClick={submit}>
+      <button type="button" className="cta w-full" disabled={!canSave || busy} onClick={submit}>
         {busy ? 'Saving…' : editId ? 'Save changes' : `Create "${name || 'set'}"`}
       </button>
-      <p className="mt-3 text-center text-[15px] text-ink-2">Cards you add anywhere count towards this set too</p>
+      <p className="-mt-1 text-center text-[13px] text-mute">Cards you add anywhere count towards this set too</p>
 
       {editId && (
         <button
           type="button"
-          className="mx-auto mt-10 block min-h-11 text-[15px] font-semibold text-down underline underline-offset-4"
+          className="mx-auto mt-4 block min-h-11 text-[13px] font-semibold text-down underline underline-offset-4"
           onClick={async () => {
             if (!confirm(`Delete "${original?.name}"? Your cards stay in your collection.`)) return
             await del.mutateAsync(editId)
@@ -215,14 +215,18 @@ function KindCard({ active, color, icon, title, body, onClick }: { active: boole
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`glass flex items-start gap-4 p-5 text-left transition-shadow ${active ? '!border-ink !border-2' : ''}`}
+      className="surface flex items-start gap-4 !rounded-[22px] p-4 text-left transition-all duration-200"
+      style={active ? { borderColor: color, boxShadow: `0 0 0 1px ${color}, 0 0 24px ${alpha(color, 0.3)}` } : undefined}
     >
-      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[16px] text-white" style={{ background: active ? '#15172B' : alpha(color, 0.7) }}>
+      <div
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px]"
+        style={{ background: alpha(color, active ? 0.25 : 0.12), color, boxShadow: active ? `0 0 18px ${alpha(color, 0.4)}` : undefined }}
+      >
         {icon}
       </div>
       <div>
-        <div className="text-[20px] font-bold">{title}</div>
-        <div className="text-[15px] text-ink-2">{body}</div>
+        <div className="text-[16px] font-semibold">{title}</div>
+        <div className="text-[13px] text-mute">{body}</div>
       </div>
     </button>
   )
@@ -261,14 +265,14 @@ function SmartPanel({
   }, [preview.data, owned])
 
   return (
-    <div className="glass flex flex-col gap-5 p-5">
-      <label className="flex flex-col gap-2">
-        <span className="text-[15px] font-bold text-ink-2">Cards named</span>
+    <div className="surface flex flex-col gap-5 p-5">
+      <label className="flex flex-col gap-2.5">
+        <span className="eyebrow">Cards named</span>
         <input className="field" placeholder="Pikachu" value={d.term} onChange={(e) => update({ term: e.target.value })} autoCapitalize="words" />
       </label>
 
       <div>
-        <div className="mb-2 text-[15px] font-bold text-ink-2">Leave out</div>
+        <div className="eyebrow mb-2.5">Leave out</div>
         <div className="flex flex-wrap gap-2">
           <Toggle on={!!ex.promos} onClick={() => setEx({ promos: !ex.promos })}>
             Promos
@@ -279,7 +283,7 @@ function SmartPanel({
               <input
                 type="number"
                 inputMode="numeric"
-                className="w-[5.2ch] bg-transparent text-center font-bold outline-none"
+                className="mono w-[5.2ch] bg-transparent text-center font-semibold outline-none"
                 value={ex.beforeYear}
                 min={1996}
                 max={2100}
@@ -300,18 +304,18 @@ function SmartPanel({
         </div>
       </div>
 
-      <div className="rounded-[18px] p-4" style={{ background: alpha(color, 0.12) }}>
+      <div className="rounded-[18px] p-4" style={{ background: alpha(color, 0.1), border: `1px solid ${alpha(color, 0.28)}` }}>
         {!hasQuery ? (
-          <p className="text-[16px] font-semibold text-ink-2">Type a name to see which cards match.</p>
+          <p className="text-[14px] text-mute">Type a name to see which cards match.</p>
         ) : preview.isLoading || (preview.isFetching && !preview.data) ? (
-          <Skeleton className="h-[110px]" />
+          <Skeleton className="h-[90px]" />
         ) : preview.error ? (
           <ErrorMessage error={preview.error} retry={() => preview.refetch()} />
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-[24px] font-extrabold">{stats.total} cards match</div>
-              <div className="text-[15px] font-semibold text-ink-2">
+              <div className="text-[22px] font-bold tracking-[-.03em]">{stats.total} cards match</div>
+              <div className="mono text-[11.5px] text-mute">
                 You already own {stats.have} of them
                 {(stats.toComplete.usd ?? stats.toComplete.eur) && <> · worth {displayPrice(mode, stats.toComplete.usd, stats.toComplete.eur)} to complete</>}
               </div>
@@ -321,7 +325,7 @@ function SmartPanel({
                 <Thumb key={c.id} card={c} width={54} />
               ))}
               {stats.total > 3 && (
-                <div className="grid aspect-[63/88] w-[54px] place-items-center rounded-lg bg-white/60 text-[15px] font-bold text-ink-2">+{stats.total - 3}</div>
+                <div className="mono grid aspect-[63/88] w-[54px] place-items-center rounded-lg bg-[var(--chip)] text-[13px] font-semibold text-mute">+{stats.total - 3}</div>
               )}
             </div>
           </div>
@@ -333,7 +337,7 @@ function SmartPanel({
 
 function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick} className={`pill text-[16px] transition-colors ${on ? 'bg-ink text-white' : 'bg-white/70 text-ink'}`}>
+    <button type="button" aria-pressed={on} onClick={onClick} className="opt inline-flex min-h-10 items-center gap-1.5 rounded-full! px-3.5 text-[13px] font-semibold">
       {on && <IconCheck size={18} />}
       {children}
     </button>
@@ -343,9 +347,9 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
 function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (id: string) => void; onChoose: () => void }) {
   const data = useCards(cards)
   return (
-    <div className="glass flex flex-col gap-4 p-5">
-      <p className="text-[16px] text-ink-2">Search for cards and add them to this set. Choosing a card here doesn't mark it as owned.</p>
-      <button type="button" className="btn-dark self-start !min-h-12 !text-[17px]" onClick={onChoose}>
+    <div className="surface flex flex-col gap-4 p-5">
+      <p className="text-[14px] text-mute">Search for cards and add them to this set. Choosing a card here doesn't mark it as owned.</p>
+      <button type="button" className="btn self-start" onClick={onChoose}>
         Choose cards
       </button>
       {cards.length > 0 && (
@@ -359,7 +363,8 @@ function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (
                   type="button"
                   onClick={() => onRemove(id)}
                   aria-label="Remove"
-                  className="absolute -top-2 -right-2 grid h-9 w-9 place-items-center rounded-full bg-ink text-white shadow"
+                  className="absolute -top-2 -right-2 grid h-8 w-8 place-items-center rounded-full bg-down text-white"
+                  style={{ boxShadow: '0 0 12px rgba(248,113,113,.6)' }}
                 >
                   <IconX size={16} />
                 </button>
@@ -374,9 +379,9 @@ function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (
 
 function PickedEditNote({ count, onChoose }: { count: number; onChoose: () => void }) {
   return (
-    <div className="glass flex flex-wrap items-center justify-between gap-4 p-5">
-      <p className="text-[16px] text-ink-2">This set has {count} cards. Add more here, or remove them from the set page.</p>
-      <button type="button" className="btn-dark !min-h-12 !text-[17px]" onClick={onChoose}>
+    <div className="surface flex flex-wrap items-center justify-between gap-4 p-5">
+      <p className="text-[14px] text-mute">This set has {count} cards. Add more here, or remove them from the set page.</p>
+      <button type="button" className="btn" onClick={onChoose}>
         Add cards
       </button>
     </div>

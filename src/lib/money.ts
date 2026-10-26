@@ -1,18 +1,16 @@
 import { DEFAULT_PROFILE, useProfile } from './queries'
-import { eurToGbp, fmtEur, fmtGbp, fmtUsd } from './pricing'
+import { type CurrencyMode } from './pricing'
+import type { Profile } from './store'
 
-export type CurrencyMode = 'both' | 'usd' | 'eur'
+export type { CurrencyMode }
+
+// The database's currency_display allows 'both' | 'usd' | 'eur'. Since the dark redesign, 'both'
+// means "pounds" (approximate, from EUR), so no migration is needed.
+export const fromStored = (v: Profile['currency_display']): CurrencyMode => (v === 'usd' || v === 'eur' ? v : 'gbp')
+export const toStored = (m: CurrencyMode): Profile['currency_display'] => (m === 'gbp' ? 'both' : m)
 
 export function useCurrencyMode(): CurrencyMode {
-  return useProfile().data?.currency_display ?? DEFAULT_PROFILE.currency_display
+  return fromStored(useProfile().data?.currency_display ?? DEFAULT_PROFILE.currency_display)
 }
 
-/** The headline figure: USD unless the profile says EUR only. */
-export const mainMoney = (mode: CurrencyMode, usd: number | null | undefined, eur: number | null | undefined) => (mode === 'eur' ? fmtEur(eur) : fmtUsd(usd))
-
-/** The secondary line under a headline, or null when the profile shows one currency. */
-export function secondaryMoney(mode: CurrencyMode, eur: number | null | undefined): string | null {
-  if (mode === 'usd') return null
-  if (mode === 'eur') return `approx ${fmtGbp(eurToGbp(eur))}`
-  return `${fmtEur(eur)} · approx ${fmtGbp(eurToGbp(eur))}`
-}
+export const CURRENCY_SYMBOL: Record<CurrencyMode, string> = { gbp: '£', usd: '$', eur: '€' }

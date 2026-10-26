@@ -2,22 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CardImage } from '../components/cards'
 import { Burst, MasteredCelebration, useCountUp } from '../components/Celebrate'
-import { IconMinus, IconPlus } from '../components/icons'
-import { BackPill, Chip, ErrorMessage, Screen, Skeleton, TopRow } from '../components/ui'
-import { typeAccent, typeTint } from '../data/type-colors'
-import { alpha, washFor } from '../lib/color'
-import { mainMoney, useCurrencyMode } from '../lib/money'
-import {
-  CONDITION_LABEL,
-  CONDITIONS,
-  displayPrice,
-  ebaySoldGbp,
-  fmtGbp,
-  priceFor,
-  VARIANT_LABEL,
-  variantsFor,
-  type Condition,
-} from '../lib/pricing'
+import { IconPlus } from '../components/icons'
+import { BackPill, Chip, ErrorMessage, Screen, Skeleton, StatusPill, tint, TopRow } from '../components/ui'
+import { typeAccent } from '../data/type-colors'
+import { alpha } from '../lib/color'
+import { useCurrencyMode } from '../lib/money'
+import { CONDITION_LABEL, CONDITIONS, displayPrice, ebaySoldGbp, fmtGbp, priceFor, VARIANT_LABEL, variantsFor, type Condition } from '../lib/pricing'
 import { useAddItem, useCard, useCollection, useCustomMembership, useCustomSets, useDeleteItem, useSets, useUpdateItem } from '../lib/queries'
 import type { CollectionItem } from '../lib/sets'
 import { setsForCard, type SetSummary } from '../lib/summaries'
@@ -32,15 +22,15 @@ export function AddCard({ mode }: { mode: 'add' | 'edit' }) {
   const card = useCard(cardId)
   const location = useLocation()
   const from = (location.state as FromState | null)?.from
-  const back = <BackPill label={from ? `Back to ${from.name}` : mode === 'add' ? 'Results' : 'Back'} fallback={from?.href ?? (mode === 'add' ? '/add' : '/')} />
+  const back = <BackPill label={from ? from.name : mode === 'add' ? 'Results' : 'Back'} fallback={from?.href ?? (mode === 'add' ? '/add' : '/')} />
 
   if (card.isLoading) {
     return (
       <Screen>
         <TopRow left={back} />
-        <div className="flex flex-col items-center gap-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="aspect-[63/88] w-[300px]" />
+        <div className="flex flex-col items-center gap-5">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="aspect-[63/88] w-full max-w-[300px]" />
         </div>
       </Screen>
     )
@@ -56,6 +46,8 @@ export function AddCard({ mode }: { mode: 'add' | 'edit' }) {
   return <CardScreen card={card.data} mode={mode} back={back} />
 }
 
+const copyLabel = (i: CollectionItem) => `${VARIANT_LABEL[i.variant]} · ${CONDITION_LABEL[i.condition]}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`
+
 function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; back: React.ReactNode }) {
   const navigate = useNavigate()
   const { items, cards, owned } = useCollection()
@@ -68,7 +60,6 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
   const have = mine.reduce((n, i) => n + i.quantity, 0)
   const variants = variantsFor(card)
   const accent = typeAccent(card)
-  const tint = typeTint(card)
 
   // Edit mode works on one owned row at a time.
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -82,7 +73,6 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
   const update = useUpdateItem()
   const remove = useDeleteItem()
 
-  // Celebration state.
   const [burstKey, setBurstKey] = useState(0)
   const [mastered, setMastered] = useState<SetSummary | null>(null)
 
@@ -98,9 +88,11 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
 
   const current = editing ?? { variant, condition, quantity: qty }
   const each = priceFor(card, current.variant, current.condition)
-  // Same rule as displayPrice: dollars unless EUR is chosen or there's no dollar price.
-  const addedCur: 'usd' | 'eur' = currency === 'eur' || each?.usd == null ? 'eur' : 'usd'
-  const addedValue = each ? each[addedCur] : null
+  const n = current.quantity
+  const total = displayPrice(currency, each?.usd != null ? each.usd * n : null, each?.eur != null ? each.eur * n : null)
+  const unit = displayPrice(currency, each?.usd, each?.eur)
+  const note = n > 1 ? `${n} × ${unit}` : `${CONDITION_LABEL[current.condition]} · ${VARIANT_LABEL[current.variant]}`
+  const ebay = ebaySoldGbp(card)
 
   function doAdd() {
     const before = cardSets
@@ -120,223 +112,204 @@ function CardScreen({ card, mode, back }: { card: Card; mode: 'add' | 'edit'; ba
     )
   }
 
-  const optionsCls = 'flex flex-col gap-2 wide:flex-row wide:flex-wrap'
-  const optionBtn = (active: boolean) =>
-    `min-h-12 rounded-2xl px-4 text-left text-[16px] font-semibold transition-colors wide:rounded-full wide:text-center ${active ? 'bg-ink text-white' : 'bg-white/70 text-ink'}`
-
-  const panel = (
-    <div className="glass grid grid-cols-1 gap-5 p-5 min-[600px]:grid-cols-3 wide:grid-cols-1 wide:gap-4">
-      <fieldset className="min-w-0">
-        <legend className="mb-2 text-[15px] font-bold text-ink-2">Which kind?</legend>
-        <div className={optionsCls}>
-          {variants.map((v) => {
-            const p = priceFor(card, v, current.condition)
-            const active = current.variant === v
-            return (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={active}
-                className={optionBtn(active)}
-                onClick={() => (editing ? update.mutate({ id: editing.id, patch: { variant: v } }) : setVariant(v))}
-              >
-                {VARIANT_LABEL[v]} · {displayPrice(currency, p?.usd, p?.eur)}
-              </button>
-            )
-          })}
-        </div>
-      </fieldset>
-      <fieldset className="min-w-0">
-        <legend className="mb-2 text-[15px] font-bold text-ink-2">Condition</legend>
-        <div className={optionsCls}>
-          {CONDITIONS.map((c) => {
-            const active = current.condition === c
-            return (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={active}
-                className={optionBtn(active)}
-                onClick={() => (editing ? update.mutate({ id: editing.id, patch: { condition: c } }) : setCondition(c))}
-              >
-                {CONDITION_LABEL[c]}
-              </button>
-            )
-          })}
-        </div>
-      </fieldset>
-      <div className="flex min-w-0 flex-col gap-3 wide:flex-row wide:items-center wide:justify-between">
-        <div>
-          <div className="mb-2 text-[15px] font-bold text-ink-2">How many?</div>
-          <Stepper
-            value={current.quantity}
-            onChange={(n) => (editing ? update.mutate({ id: editing.id, patch: { quantity: n } }) : setQty(n))}
-          />
-        </div>
-        <EbayLine card={card} />
-      </div>
-    </div>
-  )
-
-  const summaryPills = (
-    <div className="flex flex-wrap justify-center gap-2 wide:justify-start">
-      {mode === 'add' && <MoneyPill value={addedValue} qty={qty} burst={burstKey} currency={addedCur} />}
-      {cardSets.slice(0, 2).map((s) => (
-        <SetPill key={s.key} set={s} />
-      ))}
-      {cardSets.length > 2 && <span className="glass pill text-[15px] text-ink-2">+{cardSets.length - 2} more</span>}
-    </div>
-  )
+  const setVariantFor = (v: Variant) => (editing ? update.mutate({ id: editing.id, patch: { variant: v } }) : setVariant(v))
+  const setConditionFor = (c: Condition) => (editing ? update.mutate({ id: editing.id, patch: { condition: c } }) : setCondition(c))
+  const setQtyFor = (q: number) => (editing ? update.mutate({ id: editing.id, patch: { quantity: q } }) : setQty(q))
 
   return (
-    <Screen wash={washFor(accent)}>
-      <TopRow left={back} right={<span className="glass pill text-[15px]">{have ? `You have ${have}` : "You don't have this one yet"}</span>} />
+    <Screen glow={accent}>
+      <TopRow
+        left={back}
+        right={
+          have ? <StatusPill dot="#34d399">You have {have}</StatusPill> : <StatusPill>You don't have this one yet</StatusPill>
+        }
+      />
 
-      <div className="flex flex-col gap-6 wide:min-h-[calc(100dvh-220px)] wide:flex-row wide:items-center wide:gap-12">
-        <div className="text-center wide:hidden">
-          <Title card={card} accent={accent} />
-        </div>
-
-        <div className="relative mx-auto w-[300px] shrink-0 wide:mx-0 wide:w-[360px]">
-          {burstKey > 0 && <Burst key={burstKey} colors={[accent, tint[1], ...cardSets.slice(0, 1).map((s) => s.color)]} />}
-          <div key={burstKey} className={`relative z-10 ${burstKey ? 'animate-pop' : ''}`}>
-            <CardImage card={card} size="large" rounded={18} style={{ boxShadow: `0 30px 60px ${alpha(accent, 0.35)}, 0 8px 18px rgba(21,23,43,0.12)` }} />
+      <div className="flex flex-wrap items-start justify-center gap-7 wide:items-center">
+        {/* Title + card */}
+        <div className="flex max-w-[560px] flex-[1_1_360px] flex-col items-center gap-3.5">
+          <div className="flex flex-col items-center gap-1.5 text-center">
+            <h1 className="text-[40px] leading-none font-extrabold tracking-[-.04em]">{card.name}</h1>
+            <span className="text-[13px] font-medium text-mute">
+              {card.set.name} · {card.number}
+              {card.set.printedTotal ? `/${card.set.printedTotal}` : ''}
+              {card.rarity && ` · ${card.rarity}`}
+            </span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {(card.types ?? [card.supertype]).map((t) => (
+              <Chip key={t} color={accent}>
+                {t}
+              </Chip>
+            ))}
+            {(card.subtypes ?? []).map((t) => (
+              <Chip key={t} color={accent}>
+                {t}
+              </Chip>
+            ))}
+            {card.hp && <Chip color={accent}>HP {card.hp}</Chip>}
+          </div>
+          <div className="relative mt-2.5 w-full max-w-[360px]">
+            {burstKey > 0 && <Burst key={burstKey} colors={[accent, '#a78bfa', '#f472b6', ...cardSets.slice(0, 1).map((s) => s.color)]} />}
+            <div key={burstKey} className={`relative z-10 ${burstKey ? 'animate-pop' : ''}`}>
+              <div className="transition-transform duration-[350ms] hover:scale-[1.02] hover:-rotate-[1.5deg]">
+                <CardImage
+                  card={card}
+                  size="large"
+                  rounded={16}
+                  style={{ boxShadow: `0 0 0 1px ${alpha(accent, 0.55)}, 0 24px 60px ${alpha(accent, 0.3)}, 0 0 110px ${alpha(accent, 0.25)}` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-5">
-          <div className="hidden wide:block">
-            <Title card={card} accent={accent} />
-          </div>
-
+        {/* Form */}
+        <div className="flex max-w-[560px] min-w-0 flex-[1_1_380px] flex-col gap-3.5">
           {mode === 'edit' && mine.length > 1 && (
             <div className="flex flex-wrap gap-2">
               {mine.map((i) => (
-                <button key={i.id} type="button" className={`pill text-[15px] ${editing?.id === i.id ? 'bg-ink text-white' : 'glass'}`} onClick={() => setEditingId(i.id)}>
+                <button key={i.id} type="button" aria-pressed={editing?.id === i.id} className="opt rounded-full! px-3.5 py-2 text-[13px] font-semibold" onClick={() => setEditingId(i.id)}>
                   {copyLabel(i)}
                 </button>
               ))}
             </div>
           )}
 
-          {panel}
+          <div className="surface flex flex-col gap-5 p-5">
+            <div className="flex flex-col gap-2.5">
+              <span className="eyebrow">Which version?</span>
+              <div className="grid grid-cols-3 gap-2">
+                {variants.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={current.variant === v}
+                    onClick={() => setVariantFor(v)}
+                    className="opt flex min-w-0 flex-col items-start gap-1 px-2.5 py-3 text-left"
+                  >
+                    <span className="truncate text-[14px] font-semibold">{VARIANT_LABEL[v]}</span>
+                    <span className="mono text-[11px] font-medium opacity-70">{displayPrice(currency, priceFor(card, v, 'near_mint')?.usd, priceFor(card, v, 'near_mint')?.eur)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <span className="eyebrow">Condition</span>
+              <div className="grid grid-cols-2 gap-2">
+                {CONDITIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={current.condition === c}
+                    onClick={() => setConditionFor(c)}
+                    className="opt px-3.5 py-[13px] text-left text-[14px] font-semibold"
+                  >
+                    {CONDITION_LABEL[c]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-2.5">
+                <span className="eyebrow">How many?</span>
+                <Stepper value={n} onChange={setQtyFor} />
+              </div>
+              <div className="flex flex-col items-end gap-1.5 text-right">
+                <span className="eyebrow">Current price</span>
+                <span className="text-[28px] leading-none font-extrabold tracking-[-.03em] text-up" style={{ textShadow: '0 0 18px rgba(52,211,153,.5)' }}>
+                  {total}
+                </span>
+                <span className="mono text-[11px] font-medium text-mute">{note}</span>
+                {ebay !== null && <span className="mono text-[11px] font-medium text-mute">eBay sold {fmtGbp(ebay)}</span>}
+              </div>
+            </div>
+          </div>
 
           {mode === 'add' ? (
-            <div className="flex flex-col gap-4 wide:flex-row wide:items-center">
-              <button type="button" className="btn-dark w-full wide:w-auto wide:shrink-0" onClick={doAdd} disabled={add.isPending}>
-                <IconPlus /> {have ? 'Add another' : 'Add to my collection'}
-              </button>
-              {summaryPills}
-            </div>
+            <button type="button" className="cta w-full" onClick={doAdd} disabled={add.isPending}>
+              <IconPlus size={18} strokeWidth={2.6} /> {have ? 'Add another' : 'Add to my collection'}
+            </button>
           ) : (
-            <>
-              {cardSets.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-2 wide:justify-start">
-                  <span className="text-[15px] font-bold text-ink-2">Counts towards</span>
-                  {cardSets.map((s) => (
-                    <SetPill key={s.key} set={s} />
-                  ))}
-                </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link to={`/add/${card.id}`} className="chip-btn">
+                <IconPlus size={16} /> Add another kind
+              </Link>
+              {editing && (
+                <button
+                  type="button"
+                  className="min-h-10 px-2 text-[13px] font-semibold text-down underline underline-offset-4"
+                  onClick={() => {
+                    if (confirm(`Remove ${copyLabel(editing)} from your collection?`)) remove.mutate(editing.id)
+                  }}
+                >
+                  Remove from collection
+                </button>
               )}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Link to={`/add/${card.id}`} className="glass pill text-[15px]">
-                  <IconPlus size={18} /> Add another kind
-                </Link>
-                {editing && (
-                  <button
-                    type="button"
-                    className="min-h-11 px-2 text-[15px] font-semibold text-down underline underline-offset-4"
-                    onClick={() => {
-                      if (confirm(`Remove ${copyLabel(editing)} from your collection?`)) remove.mutate(editing.id)
-                    }}
-                  >
-                    Remove from collection
-                  </button>
-                )}
-              </div>
-            </>
+            </div>
           )}
-          {add.isError && <p className="text-[15px] font-semibold text-down">Couldn't save that. Check your connection and try again.</p>}
+          {add.isError && <p className="text-[13px] font-semibold text-down">Couldn't save that. Check your connection and try again.</p>}
+
+          {cardSets.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {cardSets.map((s) => (
+                <SetPill key={s.key} set={s} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {mastered && <MasteredCelebration setName={mastered.name} colors={[mastered.color, accent, '#15172B', '#FFFFFF']} onDone={() => setMastered(null)} />}
+      {mastered && <MasteredCelebration setName={mastered.name} colors={[mastered.color, accent, '#a78bfa', '#f472b6', '#fef3c7']} onDone={() => setMastered(null)} />}
     </Screen>
-  )
-}
-
-const copyLabel = (i: CollectionItem) => `${VARIANT_LABEL[i.variant]} · ${CONDITION_LABEL[i.condition]}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`
-
-function Title({ card, accent }: { card: Card; accent: string }) {
-  return (
-    <>
-      <h1 className="text-[38px] leading-tight font-extrabold tracking-tight wide:text-[46px]">{card.name}</h1>
-      <p className="mt-1 text-[17px] font-semibold text-ink-2">
-        {card.set.name} · {card.number}
-        {card.set.printedTotal ? `/${card.set.printedTotal}` : ''}
-        {card.rarity && ` · ${card.rarity}`}
-      </p>
-      <div className="mt-3 flex flex-wrap justify-center gap-2 wide:justify-start">
-        {(card.types ?? [card.supertype]).map((t) => (
-          <Chip key={t} color={accent}>
-            {t}
-          </Chip>
-        ))}
-        {(card.subtypes ?? []).map((t) => (
-          <Chip key={t} color={accent}>
-            {t}
-          </Chip>
-        ))}
-        {card.hp && <Chip color={accent}>HP {card.hp}</Chip>}
-      </div>
-    </>
   )
 }
 
 function Stepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
-    <div className="flex items-center gap-3">
-      <button type="button" aria-label="One fewer" className="grid h-14 w-14 place-items-center rounded-2xl bg-white/80 text-ink disabled:opacity-40" disabled={value <= 1} onClick={() => onChange(value - 1)}>
-        <IconMinus />
+    <div className="flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--chip)] p-1">
+      <button
+        type="button"
+        aria-label="One fewer"
+        className="grid h-11 w-11 place-items-center rounded-full text-[20px] transition-opacity"
+        style={{ opacity: value > 1 ? 1 : 0.35 }}
+        disabled={value <= 1}
+        onClick={() => onChange(value - 1)}
+      >
+        −
       </button>
-      <span className="w-10 text-center text-[30px] font-extrabold tabular-nums" aria-live="polite">
+      <span className="mono min-w-7 text-center text-[18px] font-semibold" aria-live="polite">
         {value}
       </span>
-      <button type="button" aria-label="One more" className="grid h-14 w-14 place-items-center rounded-2xl bg-white/80 text-ink" onClick={() => onChange(value + 1)}>
-        <IconPlus />
+      <button
+        type="button"
+        aria-label="One more"
+        className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-2)] text-[20px]"
+        style={{ boxShadow: '0 0 0 1px var(--line)' }}
+        onClick={() => onChange(value + 1)}
+      >
+        +
       </button>
     </div>
   )
 }
 
-function EbayLine({ card }: { card: Card }) {
-  const gbp = ebaySoldGbp(card)
-  return <p className="text-[14px] font-semibold text-ink-2">{gbp === null ? 'Sold prices not available' : `Recently sold on eBay: ${fmtGbp(gbp)}`}</p>
-}
-
-function MoneyPill({ value, qty, burst, currency }: { value: number | null; qty: number; burst: number; currency: 'usd' | 'eur' }) {
-  // After an add, count up from zero to the amount just added.
-  const [target, setTarget] = useState<number | null>(null)
-  useEffect(() => {
-    if (!burst) return
-    setTarget(0)
-    const t = requestAnimationFrame(() => setTarget(null))
-    return () => cancelAnimationFrame(t)
-  }, [burst])
-  const total = value === null ? null : value * qty
-  const shown = useCountUp(target ?? total ?? 0)
-  if (total === null) return <span className="glass pill text-[15px] text-ink-2">No price yet</span>
-  return (
-    <span className="glass pill text-[15px] text-up tabular-nums">
-      + {mainMoney(currency, shown, shown)} to your total
-    </span>
-  )
-}
-
+/** "Set → N of M". Official sets are neutral, custom sets tinted in their colour; counts up after an add. */
 function SetPill({ set }: { set: SetSummary }) {
   const owned = useCountUp(set.progress.owned)
+  const custom = set.kind !== 'official'
   return (
-    <Link to={set.href} className="glass pill text-[15px] tabular-nums" style={{ color: set.color }}>
+    <Link
+      to={set.href}
+      className="rounded-full border px-[13px] py-2 text-[12px] tabular-nums"
+      style={
+        custom
+          ? { background: alpha(set.color, 0.12), borderColor: alpha(set.color, 0.3), color: tint(set.color), fontWeight: 600 }
+          : { background: 'var(--chip)', borderColor: 'var(--line)', color: 'var(--color-mute)', fontWeight: 500 }
+      }
+    >
       {set.name} → {Math.round(owned)} of {set.progress.total}
     </Link>
   )

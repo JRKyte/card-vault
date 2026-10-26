@@ -62,6 +62,12 @@ The workflow ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) ru
 
 It now opens full screen like an app and stays signed in. Sign out is under Settings (tap the avatar on the home screen).
 
+## Design
+
+Dark "neon" theme from the design handoff: Sora and JetBrains Mono, violet accents, glowing set colours, and a floating tab bar (Home, Sets, Add, Trends) on every screen size. Shared styles live in `src/index.css` (tokens and component classes like `.surface`, `.chip-btn`, `.opt`, `.cta`, `.seg`). Trends opens the value chart.
+
+The app icon is `public/icon.svg`. After editing it, regenerate the PNGs with `npm run icons`.
+
 ## Editing the app's data
 
 ### Upcoming sets — `src/data/upcoming-sets.json`
@@ -78,16 +84,16 @@ The "Coming next" card first looks for a future-dated set in the card API. Neith
 
 ### Set colours — `src/data/set-colors.ts`
 
-Each official set's colour is used for its logo block, progress bar and page background. Add a line using the set's pokemontcg.io id (the part before the dash in a card id, like `sv7` in `sv7-128`):
+Each official set's colour is used for its icon ring, glow and progress bar. Use bright colours: the app is dark, so they're meant to glow. Add a line using the set's pokemontcg.io id (the part before the dash in a card id, like `sv7` in `sv7-128`):
 
 ```ts
 export const SET_COLORS: Record<string, string> = {
-  sv7: '#0E9F8A',
-  me5: '#3B3F6B', // add new sets like this
+  sv7: '#2dd4bf',
+  me6: '#38bdf8', // add new sets like this
 }
 ```
 
-Sets without an entry use the neutral grey `#5B6480`.
+Sets without an entry get a colour from `NEON_PALETTE`, picked from the set id, so they always keep the same one.
 
 ### Avatar options — `src/data/avatar-options.ts`
 
@@ -96,7 +102,8 @@ The nine Pokémon on the Settings screen each point at a card id. Change one to 
 ## Good to know
 
 - **Prices.** USD is TCGplayer's market price via pokemontcg.io. EUR is Cardmarket's trend price via TCGdex, updated daily and covering new sets; pokemontcg.io's own EUR prices stopped updating in November 2025, so they're only used when TCGdex doesn't have a card. TCGdex has no bulk price endpoint, so prices are fetched card by card and cached in Supabase for a day (`src/lib/tcgdex.ts`).
-- **2026 sets have no USD prices** in pokemontcg.io (as of October 2026). Single-card prices fall back to EUR, but dollar totals leave those cards out. For a UK collection, **Settings → Show prices in → EUR** gives the most complete totals, with the approx £ beside them (EUR × 0.85).
+- **Prices show in pounds by default.** There's no GBP price source, so £ is Cardmarket's EUR price × 0.85 (`EUR_TO_GBP` in `src/lib/pricing.ts`); cards with no EUR price show in dollars instead. **Settings → Show prices in** switches to USD or EUR. (The database stores the GBP choice as `both`, its old "USD and EUR" value, so no migration is needed.)
+- **2026 sets have no USD prices** in pokemontcg.io (as of October 2026), so dollar totals leave those cards out. GBP and EUR totals are the most complete.
 - **eBay sold prices** have a placeholder (`ebaySoldGbp` in `src/lib/pricing.ts`) that returns nothing for now; the card screen says "Sold prices not available".
 - **The card API is flaky without a key.** Requests are retried with backoff, and everything fetched is cached in Supabase (`card_cache`, `set_cache`) and by the service worker, so pages still open offline.
 - **pokemontcg.io's future:** Scrydex says it is the official successor to pokemontcg.io, and that an end-of-life date for the old API will be announced. The API code is all in `src/lib/tcg.ts` if it ever needs swapping.

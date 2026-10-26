@@ -24,8 +24,8 @@ export default defineConfig({
         description: 'Track your cards, finish your sets.',
         display: 'standalone',
         orientation: 'any',
-        theme_color: '#15172B',
-        background_color: '#F4F5F9',
+        theme_color: '#0b0912',
+        background_color: '#0b0912',
         start_url: '.',
         scope: '.',
         icons: [

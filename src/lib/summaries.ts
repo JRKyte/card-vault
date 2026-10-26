@@ -1,7 +1,7 @@
 // One shape for official and custom sets, so the dashboard and card screens can treat them alike.
 
 import { useMemo } from 'react'
-import { setColor } from '../data/set-colors'
+import { customColor, setColor } from '../data/set-colors'
 import { useCollection, useCustomMembership, useCustomSets, useSets, useTracked } from './queries'
 import { itemsValue, progress, type CollectionItem, type Money, type Progress } from './sets'
 import type { CustomSet } from './store'
@@ -21,7 +21,11 @@ export interface SetSummary {
   progress: Progress
   value: Money
   href: string
+  /** When a card in this set was last added (ISO), for "Recent sets". */
+  lastAdded: string | null
 }
+
+const latest = (items: CollectionItem[]) => items.reduce<string | null>((max, i) => (!max || i.created_at > max ? i.created_at : max), null)
 
 export function officialSummary(set: TcgSet, items: CollectionItem[], cards: ReadonlyMap<string, Card>, tracked: boolean): SetSummary {
   // An official set's cards are exactly the cards whose set.id matches, so we can count from
@@ -44,26 +48,26 @@ export function officialSummary(set: TcgSet, items: CollectionItem[], cards: Rea
     progress: { owned, total, pct, mastered: total > 0 && owned === total },
     value: itemsValue(inSet, cards),
     href: `/set/${set.id}`,
+    lastAdded: latest(inSet),
   }
 }
 
 export function customSummary(set: CustomSet, members: string[], items: CollectionItem[], cards: ReadonlyMap<string, Card>, owned: ReadonlySet<string>): SetSummary {
   const ids = new Set(members)
+  const inSet = items.filter((i) => ids.has(i.card_id))
   return {
     key: `custom:${set.id}`,
     kind: set.kind,
     id: set.id,
     name: set.name,
-    color: set.color,
+    color: customColor(set.color),
     code: set.kind === 'smart' ? 'SMART' : 'PICKED',
     iconCardId: set.icon_card_id,
     tracked: true,
     progress: progress(members, owned),
-    value: itemsValue(
-      items.filter((i) => ids.has(i.card_id)),
-      cards,
-    ),
+    value: itemsValue(inSet, cards),
     href: `/custom/${set.id}`,
+    lastAdded: latest(inSet),
   }
 }
 
@@ -80,10 +84,13 @@ export function useSetSummaries() {
     const official = (sets.data ?? []).map((s) => officialSummary(s, collection.items, collection.cards, trackedIds.has(s.id)))
     const custom = (customSets.data ?? []).map((s) => customSummary(s, membership.members.get(s.id) ?? [], collection.items, collection.cards, collection.owned))
     const mine = [...official.filter((s) => s.tracked), ...custom].sort((a, b) => b.progress.pct - a.progress.pct || b.progress.owned - a.progress.owned)
+    // My sets with the most recently added cards first; untouched sets after, newest first.
+    const recent = [...mine].sort((a, b) => (b.lastAdded ?? '').localeCompare(a.lastAdded ?? '') || (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''))
     return {
       official,
       custom,
       mine,
+      recent,
       membership,
       trackedIds,
       isLoading: tracked.isLoading || customSets.isLoading || membership.isLoading,
