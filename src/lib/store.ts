@@ -472,9 +472,10 @@ class LocalStore implements Store {
 }
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// The publishable key (sb_publishable_…) or a legacy anon key; both work the same here.
+const publicKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined
 
 export const store: Store =
-  url && anonKey
-    ? new SupabaseStore(createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'card-vault-auth' } }))
+  url && publicKey
+    ? new SupabaseStore(createClient(url, publicKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'card-vault-auth' } }))
     : new LocalStore()

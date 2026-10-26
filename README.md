@@ -29,13 +29,17 @@ npm run build     # type-check and build to dist/
 4. Create the family account: **Authentication → Users → Add user → Create new user**. Enter the email and password, and tick **Auto Confirm User**.
 
    To let someone else use the app (a friend, a sibling), create another user the same way. Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. Send them the app link and the email and password you set. To remove someone later, delete their user and all their data goes with it.
-5. Copy the keys from **Project Settings → API**: the **Project URL** and the **anon / public** key. They're safe to put in the app; Row Level Security stops anyone reading or changing your rows without signing in.
+5. Get the two values the app needs:
+   - **Publishable key**: **Project Settings → API Keys**. It starts with `sb_publishable_`. (Use the publishable key, never a secret key.)
+   - **Project URL**: it's `https://<project-ref>.supabase.co`. The project ref is the random string in your dashboard's address bar (`supabase.com/dashboard/project/<project-ref>`). You can also copy the full URL from the **Connect** button at the top of the dashboard, or from **Project Settings → Data API**.
+
+   Both are safe to put in the app; Row Level Security stops anyone reading or changing your rows without signing in.
 
 For local development, put them in `.env.local`:
 
 ```
 VITE_SUPABASE_URL=https://xxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
 ## 2. Deploy to GitHub Pages
@@ -43,7 +47,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 1. Create a GitHub repository (e.g. `card-vault`) and push this project to its `main` branch.
 2. **Settings → Secrets and variables → Actions → New repository secret**, and add:
    - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
    - `VITE_POKEMONTCG_API_KEY` (optional; a free key from [dev.pokemontcg.io](https://dev.pokemontcg.io) makes the card API more reliable)
 3. **Settings → Pages → Build and deployment → Source**: choose **GitHub Actions**.
 4. Push to `main` (or run the workflow from the **Actions** tab). The app is published at `https://<your-username>.github.io/<repo-name>/`.

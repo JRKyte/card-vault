@@ -30,7 +30,7 @@ jobs:
           # The app is served from https://<user>.github.io/<repo>/
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_POKEMONTCG_API_KEY: ${{ secrets.VITE_POKEMONTCG_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
