@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardTile } from '../components/cards'
 import { IconEdit, IconPlus, IconRefresh, IconX } from '../components/icons'
 import { SetIcon } from '../components/SetBits'
-import { BackPill, ErrorMessage, Message, ProgressBar, Ring, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
+import { BackPill, ErrorMessage, Message, ProgressBar, Screen, Segmented, Skeleton, StatusPill, tint, TopRow } from '../components/ui'
 import { customColor, setColor } from '../data/set-colors'
 import { resolveSmartSet } from '../lib/cards'
 import { alpha } from '../lib/color'
@@ -264,40 +264,41 @@ function SetBody({
       <TopRow left={<BackPill label="Sets" to="/sets" />} right={<StatusPill dot={color}>{badge}</StatusPill>} />
 
       <section
-        className="relative flex flex-col gap-5 overflow-hidden rounded-[26px] p-5 min-[600px]:flex-row min-[600px]:items-center min-[600px]:gap-8 wide:p-7"
+        className="relative flex flex-col gap-4 overflow-hidden rounded-[26px] p-5 wide:p-6"
         style={{ background: `linear-gradient(135deg, ${alpha(color, 0.18)}, rgba(14,10,26,.9) 65%)`, boxShadow: `0 0 0 1px ${alpha(color, 0.4)}, 0 10px 50px ${alpha(color, 0.18)}` }}
       >
-        <div className="relative min-w-0 flex-1">
-          <div className="flex items-center gap-4">
-            {logo}
-            <h1 className="min-w-0 text-[30px] leading-tight font-extrabold tracking-[-.035em] wide:text-[38px]">{title}</h1>
-          </div>
-          {tracked ? (
-            <>
-              <p className="mono mt-4 text-[12px] font-medium text-mute">
-                {gotCount} of {total} cards
-                {value.priced && <> · worth {displayPrice(mode, value.usd || null, value.eur || null)}</>}
-                {total - gotCount > 0 && <> · {total - gotCount} to go</>}
-              </p>
-              <ProgressBar pct={pct} color={color} height={8} className="mt-3" />
-            </>
-          ) : (
-            <>
-              <p className="mono mt-4 text-[12px] font-medium text-mute">
-                {total} cards{gotCount > 0 && ` · you already have ${gotCount}`}
-              </p>
-              <button type="button" className="cta mt-4 w-full wide:w-auto" onClick={onTrack}>
-                Start collecting this set
-              </button>
-            </>
+        <div className="flex items-center gap-4">
+          {logo}
+          <h1 className="line-clamp-2 min-w-0 flex-1 text-[clamp(22px,6.4vw,36px)] leading-[1.05] font-extrabold tracking-[-.035em] break-words">{title}</h1>
+          {tracked && (
+            <div className="flex-none text-right">
+              <div className="text-[clamp(26px,7vw,34px)] leading-none font-extrabold tracking-[-.04em]" style={{ color: tint(color), textShadow: `0 0 18px ${alpha(color, 0.5)}` }}>
+                {pct}%
+              </div>
+              <div className="eyebrow mt-1 !text-[9.5px]">mastered</div>
+            </div>
           )}
-          {actions && <div className="mt-4">{actions}</div>}
         </div>
-        {tracked && (
-          <div className="self-center">
-            <Ring pct={pct} color={color} />
+        {tracked ? (
+          <div className="flex flex-col gap-2.5">
+            <p className="mono text-[12px] font-medium text-mute">
+              {gotCount} of {total} cards
+              {value.priced && <> · worth {displayPrice(mode, value.usd || null, value.eur || null)}</>}
+              {total - gotCount > 0 && <> · {total - gotCount} to go</>}
+            </p>
+            <ProgressBar pct={pct} color={color} height={8} />
           </div>
+        ) : (
+          <>
+            <p className="mono text-[12px] font-medium text-mute">
+              {total} cards{gotCount > 0 && ` · you already have ${gotCount}`}
+            </p>
+            <button type="button" className="cta w-full wide:w-auto wide:self-start" onClick={onTrack}>
+              Start collecting this set
+            </button>
+          </>
         )}
+        {actions}
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

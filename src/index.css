@@ -48,11 +48,11 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Unlayered rules beat Tailwind's component layer, so only set what no component class sets
+   (Tailwind's preflight already makes buttons inherit font and colour). */
 button {
   cursor: pointer;
   touch-action: manipulation;
-  font-family: inherit;
-  color: inherit;
 }
 
 /* iOS fades content as it passes under the status bar, a little beyond the safe area itself,

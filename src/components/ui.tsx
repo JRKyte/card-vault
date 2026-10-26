@@ -108,22 +108,6 @@ export function ProgressBar({ pct, color, height = 6, className = '' }: { pct: n
   )
 }
 
-export function Ring({ pct, color, size = 132 }: { pct: number; color: string; size?: number }) {
-  return (
-    <div
-      className="relative grid shrink-0 place-items-center rounded-full"
-      style={{ width: size, height: size, background: `conic-gradient(${color} ${pct * 3.6}deg, var(--track) 0deg)`, filter: `drop-shadow(0 0 14px ${alpha(color, 0.45)})` }}
-    >
-      <div className="absolute grid place-items-center rounded-full bg-[#120d1f] text-center" style={{ inset: size * 0.09 }}>
-        <div>
-          <div className="text-[30px] leading-none font-extrabold tracking-tight">{pct}%</div>
-          <div className="eyebrow mt-1.5 !text-[9.5px]">mastered</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /** Tinted chip, e.g. the card's type / subtype / HP. */
 export function Chip({ color, children }: { color: string; children: ReactNode }) {
   return (
