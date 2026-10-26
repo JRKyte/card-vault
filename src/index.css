@@ -1,0 +1,281 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Outfit', ui-rounded, system-ui, -apple-system, sans-serif;
+  /* iPad portrait is ~820–834 wide, landscape ~1180–1194: switch layouts at 900. */
+  --breakpoint-wide: 900px;
+  --breakpoint-xl: 1100px;
+
+  --color-ink: #15172b;
+  --color-ink-2: #5b6480;
+  --color-muted: #8a93ad;
+  --color-nav-idle: #b9bfd6;
+  --color-up: #1f7a4c;
+  --color-down: #b3261e;
+  --color-base: #f4f5f9;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  overscroll-behavior-y: none;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Safe-area helpers for the floating nav and top chrome. */
+.pt-safe {
+  padding-top: max(20px, env(safe-area-inset-top));
+}
+.pb-nav {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
+@layer components {
+  /* Blurred glass: only for elements that don't scroll (nav, header chrome, modals, hero). */
+  .glass {
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 22px;
+    box-shadow: 0 8px 30px rgba(21, 23, 43, 0.06);
+  }
+  /* Same look without the blur, for long scrolling lists. */
+  .glass-flat {
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 22px;
+    box-shadow: 0 8px 30px rgba(21, 23, 43, 0.06);
+  }
+  .glass-dark {
+    background: rgba(21, 23, 43, 0.92);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border-radius: 22px;
+    color: white;
+    box-shadow: 0 12px 34px rgba(21, 23, 43, 0.22);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .btn-dark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 60px;
+    padding: 0 28px;
+    border-radius: 20px;
+    background: var(--color-ink);
+    color: white;
+    font-weight: 700;
+    font-size: 19px;
+    transition:
+      transform 120ms ease,
+      opacity 120ms ease;
+  }
+  .btn-dark:active {
+    transform: scale(0.98);
+  }
+  .btn-dark:disabled {
+    opacity: 0.45;
+  }
+  .field {
+    width: 100%;
+    min-height: 64px;
+    padding: 0 20px;
+    border: 2px solid var(--color-ink);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.7);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--color-ink);
+    outline: none;
+  }
+  .field::placeholder {
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+}
+
+/* Background wash: one large blurred blob in a corner. */
+.wash {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  transition: background-color 400ms ease;
+}
+.wash::after {
+  content: '';
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  top: -25vmax;
+  right: -20vmax;
+  border-radius: 50%;
+  background: var(--blob);
+  filter: blur(110px);
+  opacity: 0.7;
+  transition: background-color 400ms ease;
+}
+
+/* Film grain on every screen. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+}
+
+/* Celebration animations. */
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  70% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-pop {
+  animation: pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes burst {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(1);
+    opacity: 0;
+  }
+}
+.confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 14px;
+  border-radius: 3px;
+  animation: burst var(--dur, 700ms) cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes rain {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift), 105vh, 0) rotate(var(--rot));
+    opacity: 0;
+  }
+}
+.confetti-rain {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 16px;
+  border-radius: 3px;
+  animation: rain var(--dur, 1500ms) cubic-bezier(0.3, 0.4, 0.5, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-up {
+  animation: fade-up 320ms ease both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade 240ms ease both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(21, 23, 43, 0.05), rgba(21, 23, 43, 0.1), rgba(21, 23, 43, 0.05));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop,
+  .confetti,
+  .confetti-rain {
+    animation: fade 200ms ease both;
+  }
+  .confetti,
+  .confetti-rain {
+    display: none;
+  }
+  .skeleton {
+    animation: none;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
