@@ -8,13 +8,22 @@ import { withTcgdexPrices } from './tcgdex'
 
 export const FRESH_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Bump when cached card data gains something new, so older cache rows refresh straight away
+ * instead of waiting out the day. 2 = TCGdex EUR prices and variants.
+ */
+export const CARD_CACHE_VERSION = 2
+
 const isFresh = (fetched_at: string) => Date.now() - new Date(fetched_at).getTime() < FRESH_MS
+
+/** A cached card is usable without refetching if it's under a day old and from this cache version. */
+export const isFreshCard = (c: Cached<Card>) => isFresh(c.fetched_at) && c.data.cacheVersion === CARD_CACHE_VERSION
 export const today = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
 
 /** Save fresh cards to the shared cache and record today's prices for the movers list. */
 async function remember(cards: Card[]) {
   if (!cards.length) return
-  await store.putCards(cards)
+  await store.putCards(cards.map((c) => ({ ...c, cacheVersion: CARD_CACHE_VERSION })))
   const taken_on = today()
   const rows: PriceHistoryRow[] = cards
     .filter((c) => c.tcgplayer?.prices || c.cardmarket?.prices)
@@ -45,7 +54,7 @@ export async function loadCards(ids: string[], opts: { force?: boolean } = {}): 
   if (!unique.length) return map
   const cached = await store.getCachedCards(unique).catch(() => [] as Cached<Card>[])
   for (const c of cached) map.set(c.data.id, c.data)
-  const fresh = new Set(cached.filter((c) => isFresh(c.fetched_at)).map((c) => c.data.id))
+  const fresh = new Set(cached.filter(isFreshCard).map((c) => c.data.id))
   const need = opts.force ? unique : unique.filter((id) => !fresh.has(id))
   if (need.length) {
     try {
@@ -62,7 +71,7 @@ export async function loadCards(ids: string[], opts: { force?: boolean } = {}): 
 /** Every card in an official set, refreshed as a batch (one or two requests). */
 export async function loadSetCards(set: Pick<TcgSet, 'id' | 'total'>, opts: { force?: boolean } = {}): Promise<Card[]> {
   const cached = await store.getCachedSetCards(set.id).catch(() => [] as Cached<Card>[])
-  const complete = cached.length >= set.total && cached.every((c) => isFresh(c.fetched_at))
+  const complete = cached.length >= set.total && cached.every(isFreshCard)
   if (complete && !opts.force) return cached.map((c) => c.data)
   try {
     const cards = await withTcgdexPrices(await setCards(set.id))

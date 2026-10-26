@@ -49,6 +49,8 @@ export interface Card {
   tcgplayer?: { updatedAt?: string; prices?: Partial<Record<Variant, TcgPlayerPrice>> }
   /** From TCGdex when it has the card (source: 'tcgdex'), else pokemontcg.io's own, often stale, copy. */
   cardmarket?: { updatedAt?: string; prices?: CardmarketPrices; source?: 'tcgdex' }
+  /** Set by the card cache; see CARD_CACHE_VERSION. */
+  cacheVersion?: number
   /** Printings the card exists in, per TCGdex. Used when TCGplayer lists none. */
   tcgdexVariants?: Variant[]
 }

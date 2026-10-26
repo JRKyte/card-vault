@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CARD_CACHE_VERSION, isFreshCard } from './cards'
 import { bestEur, displayPrice, priceFor, variantsFor } from './pricing'
 import { priciestMissing } from './sets'
 import type { Card, TcgSet } from './tcg'
@@ -93,5 +94,21 @@ describe('cards with only EUR prices', () => {
 
   it('still finds the priciest missing card', () => {
     expect(priciestMissing([a, b], new Set())).toEqual({ card: b, usd: null, eur: 3.2 })
+  })
+})
+
+describe('card cache freshness', () => {
+  const recent = new Date().toISOString()
+  const old = new Date(Date.now() - 2 * 864e5).toISOString()
+  const c = euroOnly('me5-9', 1)
+
+  it('refreshes cards cached by an older version, even if recent', () => {
+    expect(isFreshCard({ data: c, fetched_at: recent })).toBe(false)
+    expect(isFreshCard({ data: { ...c, cacheVersion: CARD_CACHE_VERSION - 1 }, fetched_at: recent })).toBe(false)
+  })
+
+  it('keeps current-version cards for a day', () => {
+    expect(isFreshCard({ data: { ...c, cacheVersion: CARD_CACHE_VERSION }, fetched_at: recent })).toBe(true)
+    expect(isFreshCard({ data: { ...c, cacheVersion: CARD_CACHE_VERSION }, fetched_at: old })).toBe(false)
   })
 })
