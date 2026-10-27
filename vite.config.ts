@@ -73,6 +73,12 @@ export default defineConfig({
             },
           },
           {
+            // The card scanner's text recogniser (engine + English data), so scanning works offline.
+            urlPattern: ({ url }) => url.hostname === 'cdn.jsdelivr.net' && /tesseract/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'ocr', expiration: { maxEntries: 20 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
             urlPattern: ({ url }) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com',
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'fonts', cacheableResponse: { statuses: [0, 200] } },

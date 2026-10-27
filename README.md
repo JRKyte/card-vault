@@ -68,6 +68,14 @@ Dark "neon" theme from the design handoff: Sora and JetBrains Mono, violet accen
 
 The app icon is `public/icon.svg`. After editing it, regenerate the PNGs with `npm run icons`.
 
+## Scanning cards
+
+**Add → Scan card** opens the camera. Line the card up in the frame with its number line (e.g. `SCR EN 128/142`) inside the yellow strip, and tap the button. The number is read on the phone itself with [Tesseract.js](https://tesseract.projectnaptha.com/) (free; ~10MB downloads the first time, then it's cached), searched, and the quick-add drawer opens. If several cards match, you pick one; if nothing reads, you can type the number instead.
+
+- The slanted number font often makes "/" read as "7" or "1", so a run like `1287142` is split using the real set sizes (`src/lib/scan.ts`).
+- Works best on Scarlet & Violet and newer cards (set code next to the number) and on main-set cards. Gallery numbers (TG05/TG30) and secret rares are less reliable; older cards may give a short list to pick from.
+- iPhone and iPad also have **Live Text**: tap the search box, tap it again and choose **Scan Text** to read the number straight into search.
+
 ## Editing the app's data
 
 ### Upcoming sets — `src/data/upcoming-sets.json`

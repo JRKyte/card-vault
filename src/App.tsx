@@ -17,6 +17,7 @@ import { Settings } from './screens/Settings'
 
 // The chart library is heavy; only load it when the Value screen opens.
 const Value = lazy(() => import('./screens/Value').then((m) => ({ default: m.Value })))
+const Scan = lazy(() => import('./screens/Scan').then((m) => ({ default: m.Scan })))
 
 export function App() {
   const qc = useQueryClient()
@@ -73,6 +74,14 @@ function SignedIn() {
           }
         />
         <Route path="/settings" element={<Settings />} />
+        <Route
+          path="/scan"
+          element={
+            <Suspense fallback={null}>
+              <Scan />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {showNav && <Nav />}

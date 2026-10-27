@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Thumb } from '../components/cards'
-import { IconCheck, IconChevronRight, IconPlus, IconSearch, IconX } from '../components/icons'
+import { IconCamera, IconCheck, IconChevronRight, IconPlus, IconSearch, IconX } from '../components/icons'
 import { QuickAddSheet } from '../components/QuickAdd'
 import { BackPill, ErrorMessage, Message, PageHeader, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
 import { draftCards, loadDraft, setDraftCards } from '../lib/draft'
@@ -101,7 +101,17 @@ export function Search() {
           right={pickDraft && <StatusPill dot="#a78bfa">{draft.length} chosen</StatusPill>}
         />
       )}
-      <PageHeader eyebrow={picking ? 'Choose cards' : 'Add'} title={picking ? `Add to ${targetName}` : 'Add a card'} />
+      <PageHeader
+        eyebrow={picking ? 'Choose cards' : 'Add'}
+        title={picking ? `Add to ${targetName}` : 'Add a card'}
+        right={
+          !picking && (
+            <Link to="/scan" className="chip-btn !min-h-11">
+              <IconCamera size={18} /> Scan card
+            </Link>
+          )
+        }
+      />
 
       <div
         className="relative rounded-[22px] border border-[rgba(167,139,250,.45)] bg-[var(--surface)] transition-shadow focus-within:border-accent"
