@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IconPlus, IconSearch, IconSparkle, IconStar, IconWand } from '../components/icons'
-import { SetIcon, SetRow } from '../components/SetBits'
+import { SeriesTile, SetIcon, SetRow } from '../components/SetBits'
 import { ErrorMessage, Message, Modal, PageHeader, Screen, Segmented, Skeleton } from '../components/ui'
 import { setColor } from '../data/set-colors'
-import { useSets } from '../lib/queries'
-import { useSetSummaries, type SetSummary } from '../lib/summaries'
+import { useSeriesLogos, useSets } from '../lib/queries'
+import { seriesLogoFor } from '../lib/tcgdex'
+import { groupBySeries, useSetSummaries, type SetSummary } from '../lib/summaries'
 
 type View = 'mine' | 'all'
 
@@ -31,8 +32,10 @@ export function Sets() {
     }
   }
 
-  const rows: SetSummary[] = view === 'mine' ? summaries.mine : [...summaries.custom, ...summaries.official]
-  const eyebrow = view === 'mine' ? `${summaries.mine.length} tracked` : `${summaries.custom.length + summaries.official.length} available`
+  const series = useMemo(() => groupBySeries(summaries.official), [summaries.official])
+  const logos = useSeriesLogos()
+  const rows: SetSummary[] = summaries.mine
+  const eyebrow = view === 'mine' ? `${summaries.mine.length} tracked` : `${series.length} series · ${summaries.official.length} sets`
 
   return (
     <Screen>
@@ -60,7 +63,34 @@ export function Sets() {
         </Grid>
       ) : summaries.setsError && !summaries.official.length && (view === 'all' || summaries.trackedPending > 0) ? (
         <ErrorMessage error={summaries.setsError} retry={() => summaries.refetchSets()} />
-      ) : view === 'mine' && rows.length === 0 && !summaries.trackedPending ? (
+      ) : view === 'all' ? (
+        <>
+          {summaries.custom.length > 0 && (
+            <>
+              <h2 className="mt-1 text-[22px] font-bold tracking-[-.03em]">Your custom sets</h2>
+              <Grid>
+                {summaries.custom.map((s) => (
+                  <SetRow key={s.key} set={s} />
+                ))}
+              </Grid>
+              <h2 className="mt-2 text-[22px] font-bold tracking-[-.03em]">Series</h2>
+            </>
+          )}
+          {summaries.setsLoading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <Skeleton key={i} className="h-[150px] !rounded-[22px]" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+              {series.map((g) => (
+                <SeriesTile key={g.slug} group={g} logo={seriesLogoFor(logos.data, g.name)} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : rows.length === 0 && !summaries.trackedPending ? (
         <Message
           icon={<IconStar />}
           title="Pick a set to collect"
@@ -77,7 +107,7 @@ export function Sets() {
             <SetRow key={s.key} set={s} />
           ))}
           {summaries.setsLoading &&
-            Array.from({ length: view === 'mine' ? summaries.trackedPending : 4 }, (_, i) => <Skeleton key={`pending-${i}`} className="h-[88px] !rounded-[22px]" />)}
+            Array.from({ length: summaries.trackedPending }, (_, i) => <Skeleton key={`pending-${i}`} className="h-[88px] !rounded-[22px]" />)}
           <button
             type="button"
             onClick={() => setChooser(true)}

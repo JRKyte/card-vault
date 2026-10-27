@@ -11,6 +11,7 @@ import {
   snapshotTotals,
   type CollectionItem,
 } from './sets'
+import { groupBySeries, type SetSummary } from './summaries'
 import { searchQueryFor, type Card, type TcgSet } from './tcg'
 
 const sv7: TcgSet = { id: 'sv7', name: 'Stellar Crown', series: 'Scarlet & Violet', printedTotal: 142, total: 175, releaseDate: '2024/09/13', images: {} }
@@ -205,5 +206,18 @@ describe('cost to complete', () => {
 
   it('leaves out cards already owned', () => {
     expect(costToComplete([holoOnly, twoKinds], new Set(['sv7-1']), 'usd')).toEqual({ total: 1, unpriced: 0 })
+  })
+})
+
+describe('series grouping', () => {
+  const summary = (id: string, series: string, releaseDate: string, tracked = false) =>
+    ({ key: id, kind: 'official', id, name: id, color: '#fff', code: id, series, releaseDate, tracked, progress: { owned: 0, total: 1, pct: 0, mastered: false }, value: { usd: 0, eur: 0, priced: false }, href: '', lastAdded: null }) as SetSummary
+
+  it('groups sets by series, newest series and sets first', () => {
+    const groups = groupBySeries([summary('sv1', 'Scarlet & Violet', '2023/03/31'), summary('me1', 'Mega Evolution', '2025/09/26', true), summary('sv10', 'Scarlet & Violet', '2025/05/30', true)])
+    expect(groups.map((g) => g.name)).toEqual(['Mega Evolution', 'Scarlet & Violet'])
+    expect(groups[1].sets.map((s) => s.id)).toEqual(['sv10', 'sv1'])
+    expect(groups[1].tracked).toBe(1)
+    expect(groups[1].slug).toBe('Scarlet%20%26%20Violet')
   })
 })

@@ -165,3 +165,29 @@ export async function withTcgdexPrices(cards: Card[]): Promise<Card[]> {
     }),
   )
 }
+
+const SERIES_KEY = 'tcgdex-series'
+const SERIES_MAX_AGE = 7 * 24 * 60 * 60 * 1000
+
+/** Series name (normalised) → logo URL, e.g. "swordshield" → …/swsh/swsh1/logo.webp. */
+export async function seriesLogos(): Promise<Record<string, string>> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SERIES_KEY) ?? 'null') as { at: number; logos: Record<string, string> } | null
+    if (saved && Date.now() - saved.at < SERIES_MAX_AGE) return saved.logos
+  } catch {
+    // Nothing saved.
+  }
+  const series = (await getJson<{ name: string; logo?: string }[]>('/series')) ?? []
+  const logos: Record<string, string> = {}
+  for (const s of series) if (s.logo) logos[normName(s.name)] = `${s.logo}.webp`
+  if (series.length) {
+    try {
+      localStorage.setItem(SERIES_KEY, JSON.stringify({ at: Date.now(), logos }))
+    } catch {
+      // Storage full; fine.
+    }
+  }
+  return logos
+}
+
+export const seriesLogoFor = (logos: Record<string, string> | undefined, series: string) => logos?.[normName(series)]

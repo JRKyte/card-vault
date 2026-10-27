@@ -11,6 +11,7 @@ import { Dashboard } from './screens/Dashboard'
 import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { SetDetail } from './screens/SetDetail'
+import { SeriesPage } from './screens/SeriesPage'
 import { Sets } from './screens/Sets'
 import { Settings } from './screens/Settings'
 
@@ -55,6 +56,7 @@ function SignedIn() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/sets" element={<Sets />} />
+        <Route path="/series/:slug" element={<SeriesPage />} />
         <Route path="/set/:id" element={<SetDetail kind="official" />} />
         <Route path="/custom/new" element={<CustomSetEditor />} />
         <Route path="/custom/:id/edit" element={<CustomSetEditor />} />

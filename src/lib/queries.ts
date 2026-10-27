@@ -5,6 +5,7 @@ import type { Condition } from './pricing'
 import { ownedIdSet, type CollectionItem } from './sets'
 import { store, type CustomSet, type CustomSetCard, type NewCustomSet, type Profile } from './store'
 import { searchCards, type Card, type TcgSet, type Variant } from './tcg'
+import { seriesLogos } from './tcgdex'
 
 export const keys = {
   user: ['user'] as const,
@@ -29,6 +30,8 @@ export const useCustomSets = () => useQuery({ queryKey: keys.customSets, queryFn
 export const useCustomSetCards = () => useQuery({ queryKey: keys.customSetCards, queryFn: () => store.listCustomSetCards() })
 export const useProfile = () => useQuery({ queryKey: keys.profile, queryFn: () => store.getProfile() })
 export const useSnapshots = () => useQuery({ queryKey: keys.snapshots, queryFn: () => store.listSnapshots() })
+
+export const useSeriesLogos = () => useQuery({ queryKey: ['seriesLogos'], queryFn: seriesLogos, staleTime: Infinity })
 
 export const useSets = () =>
   useQuery({ queryKey: keys.sets, queryFn: () => loadSets(), staleTime: 60 * 60 * 1000 })

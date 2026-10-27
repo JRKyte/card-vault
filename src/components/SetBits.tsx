@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { alpha } from '../lib/color'
 import { useCard } from '../lib/queries'
-import type { SetSummary } from '../lib/summaries'
+import type { SeriesGroup, SetSummary } from '../lib/summaries'
+import { paletteColor } from '../data/set-colors'
 import { IconStar } from './icons'
 import { ProgressBar, tint } from './ui'
 
@@ -93,6 +94,45 @@ export function RecentSetTile({ set }: { set: SetSummary }) {
         </span>
       </div>
       <ProgressBar pct={set.progress.pct} color={set.color} height={5} />
+    </Link>
+  )
+}
+
+/** A series on the Sets tab: its logo (or name) on a glow in its colour, with set counts. */
+export function SeriesTile({ group, logo }: { group: SeriesGroup; logo?: string }) {
+  const [failed, setFailed] = useState(false)
+  const color = paletteColor(group.name)
+  return (
+    <Link
+      to={`/series/${group.slug}`}
+      className="flex flex-col gap-3 rounded-[22px] p-3.5 transition-[transform,box-shadow] duration-200 hover:-translate-y-[3px]"
+      style={{
+        border: `1px solid ${alpha(color, 0.35)}`,
+        background: `radial-gradient(120% 80% at 50% 0%, ${alpha(color, 0.18)}, transparent 75%), var(--surface)`,
+      }}
+    >
+      <div className="grid h-[84px] place-items-center px-2">
+        {logo && !failed ? (
+          <img
+            src={logo}
+            alt={group.name}
+            loading="lazy"
+            className="max-h-[76px] max-w-full object-contain"
+            style={{ filter: `drop-shadow(0 0 14px ${alpha(color, 0.35)})` }}
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <span className="text-center text-[22px] leading-tight font-extrabold tracking-[-.03em]" style={{ color: tint(color), textShadow: `0 0 18px ${alpha(color, 0.5)}` }}>
+            {group.name}
+          </span>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-[14px] font-semibold">{group.name}</div>
+        <div className="mono truncate text-[11px] text-mute">
+          {group.sets.length} sets{group.tracked > 0 && ` · ${group.tracked} tracked`}
+        </div>
+      </div>
     </Link>
   )
 }

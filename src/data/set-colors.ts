@@ -28,8 +28,10 @@ function hash(s: string) {
   return h
 }
 
-export const setColor = (setId: string | undefined) =>
-  (setId && SET_COLORS[setId]) || (setId ? NEON_PALETTE[hash(setId) % NEON_PALETTE.length] : NEON_PALETTE[0])
+/** A palette colour picked from any key (set id, series name), always the same for that key. */
+export const paletteColor = (key: string) => NEON_PALETTE[hash(key) % NEON_PALETTE.length]
+
+export const setColor = (setId: string | undefined) => (setId && SET_COLORS[setId]) || (setId ? paletteColor(setId) : NEON_PALETTE[0])
 
 /** The swatches offered for custom sets. */
 export const CUSTOM_SET_SWATCHES = [

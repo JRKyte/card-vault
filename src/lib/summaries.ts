@@ -17,6 +17,8 @@ export interface SetSummary {
   symbol?: string
   iconCardId?: string | null
   releaseDate?: string
+  /** Official sets only: the series it belongs to, e.g. "Scarlet & Violet". */
+  series?: string
   tracked: boolean
   progress: Progress
   value: Money
@@ -44,6 +46,7 @@ export function officialSummary(set: TcgSet, items: CollectionItem[], cards: Rea
     code: set.ptcgoCode ?? set.id.toUpperCase(),
     symbol: set.images.symbol,
     releaseDate: set.releaseDate,
+    series: set.series,
     tracked,
     progress: { owned, total, pct, mastered: total > 0 && owned === total },
     value: itemsValue(inSet, cards),
@@ -122,4 +125,27 @@ export function setsForCard(
     if (m.includes(card.id)) out.push(customSummary(cs, m, items, withCard, owned))
   }
   return out
+}
+
+export interface SeriesGroup {
+  name: string
+  slug: string
+  sets: SetSummary[]
+  tracked: number
+  latest: string
+}
+
+/** Official sets grouped by series, newest series first; sets within a series newest first. */
+export function groupBySeries(official: SetSummary[]): SeriesGroup[] {
+  const groups = new Map<string, SetSummary[]>()
+  for (const s of official) {
+    const name = s.series || 'Other'
+    groups.set(name, [...(groups.get(name) ?? []), s])
+  }
+  return [...groups.entries()]
+    .map(([name, sets]) => {
+      const sorted = [...sets].sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''))
+      return { name, slug: encodeURIComponent(name), sets: sorted, tracked: sets.filter((s) => s.tracked).length, latest: sorted[0]?.releaseDate ?? '' }
+    })
+    .sort((a, b) => b.latest.localeCompare(a.latest))
 }
