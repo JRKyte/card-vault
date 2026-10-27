@@ -12,7 +12,9 @@ import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { SetDetail } from './screens/SetDetail'
 import { SeriesPage } from './screens/SeriesPage'
+import { FriendSwaps } from './screens/FriendSwaps'
 import { Sets } from './screens/Sets'
+import { Swaps } from './screens/Swaps'
 import { Settings } from './screens/Settings'
 
 // The chart library is heavy; only load it when the Value screen opens.
@@ -48,7 +50,7 @@ function SignedIn() {
   // The tab bar only shows on the four top-level screens. Inner pages (a set, a card, settings,
   // the editor, and search while picking cards for a set) have their own back button instead.
   const picking = params.has('to') || params.has('pick')
-  const showNav = ['/', '/sets', '/value'].includes(pathname) || (pathname === '/add' && !picking)
+  const showNav = ['/', '/sets', '/value', '/swaps'].includes(pathname) || (pathname === '/add' && !picking)
   useEffect(() => {
     document.documentElement.toggleAttribute('data-nav', showNav)
   }, [showNav])
@@ -74,6 +76,8 @@ function SignedIn() {
           }
         />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/swaps" element={<Swaps />} />
+        <Route path="/swaps/:friendId" element={<FriendSwaps />} />
         <Route
           path="/scan"
           element={

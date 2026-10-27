@@ -56,6 +56,19 @@ export interface Cached<T> {
 
 export type NewCustomSet = Omit<CustomSet, 'id' | 'created_at'>
 
+export interface Friend {
+  friendship_id: string
+  friend_id: string
+  status: 'pending' | 'accepted'
+  /** True when they asked me (so I can accept or decline). */
+  incoming: boolean
+  display_name: string
+  avatar_mode: 'initials' | 'card'
+  avatar_card_id: string | null
+}
+
+export type FriendRequestResult = 'requested' | 'accepted' | 'pending' | 'friends' | 'not_found' | 'self'
+
 export interface Store {
   readonly mode: 'supabase' | 'local'
 
@@ -100,6 +113,15 @@ export interface Store {
 
   getProfile(): Promise<Profile | null>
   saveProfile(p: Profile): Promise<void>
+
+  /** Friends need other accounts, so only the Supabase store supports them. */
+  readonly friendsAvailable: boolean
+  requestFriend(email: string): Promise<{ result: FriendRequestResult; name: string | null }>
+  respondFriend(friendshipId: string, accept: boolean): Promise<void>
+  removeFriend(friendshipId: string): Promise<void>
+  listFriends(): Promise<Friend[]>
+  /** An accepted friend's card ids and total copies. */
+  friendCards(friendId: string): Promise<{ card_id: string; quantity: number }[]>
 }
 
 const chunk = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n))
@@ -273,6 +295,24 @@ class SupabaseStore implements Store {
   }
   async saveProfile(p: Profile) {
     must(await this.sb.from('profiles').upsert(p, { onConflict: 'user_id' }))
+  }
+
+  readonly friendsAvailable = true
+  async requestFriend(email: string) {
+    const rows = must(await this.sb.rpc('request_friend', { friend_email: email })) as { result: FriendRequestResult; friend_name: string | null }[]
+    return { result: rows[0]?.result ?? 'not_found', name: rows[0]?.friend_name ?? null }
+  }
+  async respondFriend(friendshipId: string, accept: boolean) {
+    must(await this.sb.rpc('respond_friend', { friendship: friendshipId, accept }))
+  }
+  async removeFriend(friendshipId: string) {
+    must(await this.sb.from('friendships').delete().eq('id', friendshipId))
+  }
+  async listFriends() {
+    return must(await this.sb.rpc('friend_list')) as Friend[]
+  }
+  async friendCards(friendId: string) {
+    return must(await this.sb.rpc('friend_cards', { friend: friendId })) as { card_id: string; quantity: number }[]
   }
 }
 
@@ -486,6 +526,19 @@ class LocalStore implements Store {
   }
   async saveProfile(p: Profile) {
     this.write((d) => (d.profile = p))
+  }
+
+  readonly friendsAvailable = false
+  async requestFriend(): Promise<{ result: FriendRequestResult; name: string | null }> {
+    throw new Error('Friends need the app to be connected to Supabase.')
+  }
+  async respondFriend() {}
+  async removeFriend() {}
+  async listFriends() {
+    return [] as Friend[]
+  }
+  async friendCards() {
+    return []
   }
 }
 

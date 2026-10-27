@@ -68,6 +68,20 @@ Dark "neon" theme from the design handoff: Sora and JetBrains Mono, violet accen
 
 The app icon is `public/icon.svg`. After editing it, regenerate the PNGs with `npm run icons`.
 
+## Friends and swaps
+
+The **Swaps** tab lets two collectors see which cards they could swap.
+
+**Setup (once):** in Supabase, open **SQL Editor**, paste [`supabase/migrations/0002_friends.sql`](supabase/migrations/0002_friends.sql) and press **Run**. Then create an account for the friend the same way as the family account (Authentication → Users → Add user, tick Auto Confirm User).
+
+**How it works**
+- Add a friend by typing their exact email. They see a request on their Swaps tab and accept or decline. Nothing is shared until they accept, and either of you can remove the friendship.
+- Friends see each other's card ids and copy counts (plus display name and avatar) and nothing else: no email, prices, sets or settings.
+- A **spare** is a card you have 2 or more of, counting every version. A friend's page lists their spares you don't own ("Alex can give you") and your spares they don't own ("You can give Alex"). The badge counts one-for-one swaps: the shorter of the two lists. Cards that would help a set you're collecting are tagged and listed first.
+- After swapping, add the new card with the + on its tile.
+
+**Privacy notes:** nobody can list or search users; the lookup only answers for an exact email. Someone signed in could still try addresses to see if an account exists, so only people you've given accounts to are discoverable. The database functions that do this check who's calling (`request_friend`, `respond_friend`, `friend_list`, `friend_cards`), and signed-out callers are refused.
+
 ## Scanning cards
 
 **Add → Scan card** opens the camera. Line the card up in the frame with its number line (e.g. `SCR EN 128/142`) inside the yellow strip, and tap the button. The number is read on the phone itself with [Tesseract.js](https://tesseract.projectnaptha.com/) (free; ~10MB downloads the first time, then it's cached), searched, and the quick-add drawer opens. If several cards match, you pick one; if nothing reads, you can type the number instead.

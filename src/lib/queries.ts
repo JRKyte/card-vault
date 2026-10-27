@@ -21,6 +21,8 @@ export const keys = {
   profile: ['profile'] as const,
   snapshots: ['snapshots'] as const,
   search: (q: string) => ['search', q] as const,
+  friends: ['friends'] as const,
+  friendCards: (id: string) => ['friendCards', id] as const,
 }
 
 export const useUser = () => useQuery({ queryKey: keys.user, queryFn: () => store.getUser(), staleTime: Infinity })
@@ -278,6 +280,22 @@ export function useSaveProfile() {
     onError: (_e, _v, ctx) => qc.setQueryData(keys.profile, ctx?.prev ?? null),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.profile }),
   })
+}
+
+export const useFriends = () => useQuery({ queryKey: keys.friends, queryFn: () => store.listFriends(), enabled: store.friendsAvailable })
+
+export const useFriendCards = (friendId: string | undefined) =>
+  useQuery({ queryKey: keys.friendCards(friendId ?? ''), queryFn: () => store.friendCards(friendId!), enabled: !!friendId && store.friendsAvailable })
+
+/** Respond to, or remove, a friendship; refreshes the list. */
+export function useFriendActions() {
+  const qc = useQueryClient()
+  const done = () => qc.invalidateQueries({ queryKey: keys.friends })
+  return {
+    respond: useMutation({ mutationFn: (v: { id: string; accept: boolean }) => store.respondFriend(v.id, v.accept), onSettled: done }),
+    remove: useMutation({ mutationFn: (id: string) => store.removeFriend(id), onSettled: done }),
+    request: useMutation({ mutationFn: (email: string) => store.requestFriend(email), onSettled: done }),
+  }
 }
 
 export const DEFAULT_PROFILE: Profile = { display_name: 'Collector', avatar_mode: 'initials', avatar_card_id: null, currency_display: 'both' }
