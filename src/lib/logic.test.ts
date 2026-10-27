@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { bestUsd, ebaySoldGbp, priceFor, variantsFor } from './pricing'
 import {
   applyExclusions,
+  costToComplete,
   itemsValue,
   priciestMissing,
   progress,
@@ -188,5 +189,21 @@ describe('rarity buckets', () => {
       ['e', card({ id: 'e' })],
     ])
     expect(rarityBuckets([item('a', { quantity: 2 }), item('b'), item('c'), item('d'), item('e')], cards)).toEqual({ Commons: 3, Uncommons: 1, Rares: 1, Promos: 1 })
+  })
+})
+
+describe('cost to complete', () => {
+  const holoOnly = card({ id: 'sv7-1', tcgplayer: { prices: { holofoil: { market: 3 } } }, cardmarket: { prices: { trendPrice: 2 } } })
+  const twoKinds = card({ id: 'sv7-2', tcgplayer: { prices: { normal: { market: 1 }, reverseHolofoil: { market: 4 } } }, cardmarket: { prices: { trendPrice: 1, reverseHoloTrend: 5 } } })
+  const noPrice = card({ id: 'sv7-3' })
+
+  it('sums the cheapest version of each missing card', () => {
+    expect(costToComplete([holoOnly, twoKinds, noPrice], new Set(), 'usd')).toEqual({ total: 4, unpriced: 1 })
+    expect(costToComplete([holoOnly, twoKinds, noPrice], new Set(), 'eur')).toEqual({ total: 3, unpriced: 1 })
+    expect(costToComplete([holoOnly, twoKinds], new Set(), 'gbp')).toEqual({ total: 2.55, unpriced: 0 })
+  })
+
+  it('leaves out cards already owned', () => {
+    expect(costToComplete([holoOnly, twoKinds], new Set(['sv7-1']), 'usd')).toEqual({ total: 1, unpriced: 0 })
   })
 })

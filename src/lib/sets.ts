@@ -1,4 +1,4 @@
-import { bestEur, bestUsd, priceFor, type Condition } from './pricing'
+import { bestEur, bestUsd, inCurrency, priceFor, variantsFor, type Condition, type CurrencyMode } from './pricing'
 import { parseReleaseDate, type Card, type Variant } from './tcg'
 
 export interface CollectionItem {
@@ -148,4 +148,24 @@ export function rarityBuckets(items: CollectionItem[], cards: ReadonlyMap<string
     out[bucket] += i.quantity
   }
   return out
+}
+
+/**
+ * What the missing cards would cost: the cheapest version of each, near mint, in the chosen
+ * currency. Cards with no price at all are counted separately rather than treated as free.
+ */
+export function costToComplete(setCards: Card[], owned: ReadonlySet<string>, mode: CurrencyMode): { total: number; unpriced: number } {
+  let total = 0
+  let unpriced = 0
+  for (const card of missingCards(setCards, owned)) {
+    const prices = variantsFor(card)
+      .map((v) => {
+        const p = priceFor(card, v, 'near_mint')
+        return inCurrency(mode, p?.usd, p?.eur)
+      })
+      .filter((n): n is number => n !== null)
+    if (prices.length) total += Math.min(...prices)
+    else unpriced++
+  }
+  return { total: round(total), unpriced }
 }

@@ -11,7 +11,7 @@ import { customColor, setColor } from '../data/set-colors'
 import { resolveSmartSet } from '../lib/cards'
 import { alpha } from '../lib/color'
 import { useCurrencyMode } from '../lib/money'
-import { displayPrice } from '../lib/pricing'
+import { displayPrice, fmtIn } from '../lib/pricing'
 import {
   keys,
   useCards,
@@ -25,7 +25,7 @@ import {
   useTrack,
   useTracked,
 } from '../lib/queries'
-import { priciestMissing, progress, setValue, sortCards, type CollectionItem } from '../lib/sets'
+import { costToComplete, priciestMissing, progress, setValue, sortCards, type CollectionItem } from '../lib/sets'
 import type { CustomSet } from '../lib/store'
 import type { SetSummary } from '../lib/summaries'
 import { parseReleaseDate, type Card } from '../lib/tcg'
@@ -258,6 +258,7 @@ function SetBody({
     return setValue(ids, items, merged)
   }, [ids, items, ownedCards, sorted])
   const priciest = useMemo(() => (sorted ? priciestMissing(sorted, owned) : null), [sorted, owned])
+  const toComplete = useMemo(() => (sorted ? costToComplete(sorted, owned, mode) : null), [sorted, owned, mode])
 
   const shown = (sorted ?? []).filter((c) => (filter === 'all' ? true : filter === 'got' ? owned.has(c.id) : !owned.has(c.id)))
   const gotCount = ids.length ? prog.owned : ownedHint
@@ -317,9 +318,18 @@ function SetBody({
             { value: 'missing', label: `Missing ${missingCount}` },
           ]}
         />
-        {priciest && (
-          <div className="min-w-0 truncate text-[13px] font-medium text-mute">
-            Priciest missing: <span className="font-semibold text-ink">{priciest.card.name}</span> · <span className="mono">{displayPrice(mode, priciest.usd, priciest.eur)}</span>
+        {toComplete && missingCount > 0 && (
+          <div className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-mute wide:items-end">
+            <div>
+              To complete:{' '}
+              <span className="mono font-semibold text-up">{toComplete.total > 0 ? fmtIn(mode, toComplete.total) : '—'}</span>
+              {toComplete.unpriced > 0 && <span className="text-mute"> + {toComplete.unpriced} unpriced</span>}
+            </div>
+            {priciest && (
+              <div className="min-w-0 truncate">
+                Priciest missing: <span className="font-semibold text-ink">{priciest.card.name}</span> · <span className="mono">{displayPrice(mode, priciest.usd, priciest.eur)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
