@@ -68,11 +68,31 @@ export function splitDigitRuns(raw: string, knownTotals: ReadonlySet<number>): C
   return out
 }
 
-/** Everything the text could be: a clean read if there is one, else the digit-run guesses. */
-export function cardCandidates(raw: string, knownTotals: ReadonlySet<number>): CardText[] {
+/**
+ * Promos print a set code and a bare number ("MEP EN 101", "SVP EN 085"), no "/total". Only
+ * codes of real sets count, so stray words on the card can't pass for one.
+ */
+export function promoNumbers(raw: string, knownCodes: ReadonlySet<string>): CardText[] {
+  const out: CardText[] = []
+  for (const m of raw.toUpperCase().matchAll(/\b([A-Z]{2,4})\s?(?:EN\s?)?([0-9OQDIL|SBZG]{1,3})\b/g)) {
+    const number = toDigits(m[2]).replace(/^0+(?=\d)/, '')
+    // At least one real digit: "MEP G" is not MEP 6.
+    if (knownCodes.has(m[1]) && /\d/.test(m[2]) && /^\d+$/.test(number) && number !== '0') out.push({ number, total: null, setCode: m[1] })
+  }
+  return out
+}
+
+/** Confident readings: a clean "number/total" with a real total, or a promo number with a real set code. */
+export function strongCandidates(raw: string, knownTotals: ReadonlySet<number>, knownCodes: ReadonlySet<string> = new Set()): CardText[] {
   const clean = parseCardText(raw)
   if (clean && (!clean.total || knownTotals.size === 0 || knownTotals.has(Number(clean.total)))) return [clean]
-  return splitDigitRuns(raw, knownTotals).slice(0, 4)
+  return promoNumbers(raw, knownCodes).slice(0, 2)
+}
+
+/** Everything the text could be: confident readings first, else the digit-run guesses. */
+export function cardCandidates(raw: string, knownTotals: ReadonlySet<number>, knownCodes: ReadonlySet<string> = new Set()): CardText[] {
+  const strong = strongCandidates(raw, knownTotals, knownCodes)
+  return strong.length ? strong : splitDigitRuns(raw, knownTotals).slice(0, 4)
 }
 
 /** The last 3-letter code before the number, e.g. "SCR" in "H SCR EN 128/142". */
@@ -91,4 +111,23 @@ export function scanQuery(read: CardText, setIdForCode: (code: string) => string
   if (setId && /^[A-Z]/.test(read.number)) return `set.id:${setId}* number:${read.number}`
   if (setId) return `set.id:${setId} number:${read.number}`
   return read.total ? `number:${read.number} set.printedTotal:${read.total}` : `number:${read.number}`
+}
+
+/** Promo sets ("MEP Black Star Promos", "Scarlet & Violet Black Star Promos") print bare numbers. */
+export const isPromoSet = (set: { name: string }) => /promo/i.test(set.name)
+
+/**
+ * The bare number that keeps turning up across several reads, e.g. "101" in three reads of a
+ * promo whose set code (printed white-on-dark) didn't read. Ties go to the longer number.
+ */
+export function steadyNumber(reads: string[]): string | null {
+  const counts = new Map<string, number>()
+  for (const text of reads) {
+    for (const token of new Set(text.split(/\s+/))) {
+      const n = token.replace(/^0+(?=\d)/, '')
+      if (/^\d{1,3}$/.test(n) && n !== '0') counts.set(n, (counts.get(n) ?? 0) + 1)
+    }
+  }
+  const best = [...counts.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0]
+  return best?.[0] ?? null
 }

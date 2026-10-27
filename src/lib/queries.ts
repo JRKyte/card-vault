@@ -4,7 +4,8 @@ import { loadCards, loadSetCards, loadSets, resolveSmartSet } from './cards'
 import type { Condition } from './pricing'
 import { ownedIdSet, type CollectionItem } from './sets'
 import { store, type CustomSet, type CustomSetCard, type NewCustomSet, type Profile } from './store'
-import { searchCards, type Card, type TcgSet, type Variant } from './tcg'
+import { searchEverything } from './search'
+import type { Card, TcgSet, Variant } from './tcg'
 import { seriesLogos } from './tcgdex'
 
 export const keys = {
@@ -90,11 +91,12 @@ export const useCard = (id: string | undefined) =>
     staleTime: 10 * 60 * 1000,
   })
 
-export const useSearch = (q: string | null) =>
+/** The Add screen's search, across pokemontcg.io and the TCGdex-only sets. `term` is what was typed. */
+export const useSearch = (term: string | null) =>
   useQuery({
-    queryKey: keys.search(q ?? ''),
-    queryFn: () => searchCards(q!, { pageSize: 60 }),
-    enabled: !!q,
+    queryKey: keys.search(term ?? ''),
+    queryFn: async () => searchEverything(term!, await loadSets()),
+    enabled: !!term,
     placeholderData: keepPreviousData,
     staleTime: 10 * 60 * 1000,
   })

@@ -6,9 +6,10 @@ import { QuickAddSheet } from '../components/QuickAdd'
 import { Modal } from '../components/ui'
 import { readStrip, warmUpOcr } from '../lib/ocr'
 import { useSets } from '../lib/queries'
-import { scanQuery, type CardText } from '../lib/scan'
+import { isPromoSet, type CardText } from '../lib/scan'
+import { findByNumber, setCodes } from '../lib/search'
 import { sortCards } from '../lib/sets'
-import { searchCards, type Card } from '../lib/tcg'
+import type { Card } from '../lib/tcg'
 
 type Phase = 'starting' | 'live' | 'reading' | 'no-camera'
 
@@ -32,15 +33,22 @@ export function Scan() {
   const [quickCard, setQuickCard] = useState<Card | null>(null)
   const sets = useSets()
 
-  // Set code (e.g. SCR) → pokemontcg.io set id. Sub-sets share codes, so prefer the shortest id.
-  const setIdForCode = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const s of sets.data ?? []) {
-      const code = s.ptcgoCode?.toUpperCase()
-      if (code && (!map.has(code) || s.id.length < map.get(code)!.length)) map.set(code, s.id)
-    }
-    return (code: string) => map.get(code.toUpperCase()) ?? null
-  }, [sets.data])
+  // Promo set codes (MEP, SVP…): only promos print a bare number like "MEP EN 101", so only their
+  // codes count. A stray "SW 3" in the flavour text can't pass for Secret Wonders #3.
+  const knownCodes = useMemo(
+    () => new Set((sets.data ?? []).filter(isPromoSet).flatMap(setCodes)),
+    [sets.data],
+  )
+  // The two newest promo sets (MEP, SV promos), tried when only a bare number could be read.
+  const promoFallback = useMemo(
+    () =>
+      (sets.data ?? [])
+        .filter(isPromoSet)
+        .sort((x, y) => y.releaseDate.localeCompare(x.releaseDate))
+        .flatMap((s) => setCodes(s).slice(-1))
+        .slice(0, 2),
+    [sets.data],
+  )
 
   // Every set size, so a misread slash ("1287142") can still be split into 128/142.
   const knownTotals = useMemo(() => {
@@ -62,7 +70,7 @@ export function Scan() {
     ;(async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('No camera API')
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false })
         if (cancelled) return
         const video = videoRef.current!
         video.srcObject = stream
@@ -85,7 +93,7 @@ export function Scan() {
       await Promise.all(
         reads.map(async (read) => {
           try {
-            for (const c of (await searchCards(scanQuery(read, setIdForCode), { pageSize: 30 })).data) found.set(c.id, c)
+            for (const c of await findByNumber(read, sets.data ?? [])) found.set(c.id, c)
           } catch {
             // One failed lookup shouldn't hide the others.
           }
@@ -95,7 +103,7 @@ export function Scan() {
       setOutcome({ reads, text, cards })
       if (cards.length === 1) setQuickCard(cards[0])
     },
-    [setIdForCode],
+    [sets.data],
   )
 
   /** Crop the strip under the guide from the live video, at full camera resolution. */
@@ -121,7 +129,7 @@ export function Scan() {
       canvas.width = Math.round(sw)
       canvas.height = Math.round(sh)
       canvas.getContext('2d')!.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-      const { text, candidates } = await readStrip(canvas, knownTotals)
+      const { text, candidates } = await readStrip(canvas, knownTotals, knownCodes, promoFallback)
       await lookUp(candidates, text)
     } finally {
       setPhase('live')
@@ -138,7 +146,7 @@ export function Scan() {
       canvas.width = bitmap.width
       canvas.height = sh
       canvas.getContext('2d')!.drawImage(bitmap, 0, bitmap.height - sh, bitmap.width, sh, 0, 0, bitmap.width, sh)
-      const { text, candidates } = await readStrip(canvas, knownTotals)
+      const { text, candidates } = await readStrip(canvas, knownTotals, knownCodes, promoFallback)
       await lookUp(candidates, text)
     } finally {
       setPhase((p) => (p === 'reading' ? 'live' : p))
@@ -160,10 +168,10 @@ export function Scan() {
         >
           <div
             ref={stripRef}
-            className="absolute inset-x-2 bottom-2 h-[12%] rounded-[10px] border-2 border-dashed"
+            className="absolute inset-x-2 bottom-1.5 h-[9%] rounded-[10px] border-2 border-dashed"
             style={{ borderColor: busy ? '#6ee7b7' : 'rgba(250,204,21,.9)', boxShadow: busy ? '0 0 20px rgba(52,211,153,.6)' : '0 0 16px rgba(250,204,21,.35)' }}
           />
-          <div className="absolute inset-x-0 bottom-[calc(12%+18px)] text-center text-[13px] font-semibold text-[#fde047]" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
+          <div className="absolute inset-x-0 bottom-[calc(9%+16px)] text-center text-[13px] font-semibold text-[#fde047]" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
             {busy ? 'Reading…' : 'Line up the number here'}
           </div>
         </div>
@@ -251,8 +259,8 @@ function ScanResults({ outcome, onPick, onClose, onSearch }: { outcome: Outcome;
     <Modal onClose={onClose} title="Scan results">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] p-4 pl-5">
         <div className="min-w-0">
-          <h2 className="text-[18px] font-bold tracking-tight">{outcome.cards.length ? `${outcome.cards.length} cards match` : r ? 'No card found' : "Couldn't read the number"}</h2>
-          <div className="mono truncate text-[11.5px] text-mute">{r ? `Read as ${readAs}` : 'Try again with the number inside the yellow box'}</div>
+          <h2 className="text-[18px] font-bold tracking-tight">{outcome.cards.length ? `${outcome.cards.length} ${outcome.cards.length === 1 ? 'card matches' : 'cards match'}` : r ? 'No card found' : "Couldn't read the number"}</h2>
+          <div className="mono truncate text-[11.5px] text-mute">{r ? `Read as ${readAs}` : 'Hold it closer and steadier, in good light'}</div>
         </div>
         <button type="button" aria-label="Scan again" className="chip-btn flex-none" onClick={onClose}>
           Scan again
@@ -280,9 +288,9 @@ function ScanResults({ outcome, onPick, onClose, onSearch }: { outcome: Outcome;
               if (term.trim()) onSearch(term.trim())
             }}
           >
-            <span className="eyebrow">Search for it instead</span>
+            <span className="eyebrow">Or type what's printed at the bottom</span>
             <div className="flex gap-2">
-              <input className="field" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Name or number, like 128/142" />
+              <input className="field" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="128/142, or MEP 29 for promos" />
               <button type="submit" className="btn flex-none">
                 Search
               </button>

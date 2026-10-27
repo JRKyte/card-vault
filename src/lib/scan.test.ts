@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardCandidates, parseCardText, scanQuery } from './scan'
+import { cardCandidates, parseCardText, scanQuery, steadyNumber } from './scan'
 
 describe('reading the number line', () => {
   it('reads set code, number and total from a modern card', () => {
@@ -70,5 +70,34 @@ describe('copyright years', () => {
       { number: '4', total: '102', setCode: null },
       { number: '41', total: '102', setCode: null },
     ])
+  })
+})
+
+describe('promo numbers', () => {
+  const codes = new Set(['MEP', 'SVP', 'SCR'])
+
+  it('reads a set code and bare number', () => {
+    expect(cardCandidates('Illus. Taiga Kasai J MEP EN 101 ★', new Set([142]), codes)).toEqual([{ number: '101', total: null, setCode: 'MEP' }])
+    expect(cardCandidates('I MEP EN O29', new Set(), codes)).toEqual([{ number: '29', total: null, setCode: 'MEP' }])
+  })
+
+  it('ignores codes that are not real sets', () => {
+    expect(cardCandidates('HP 90 THE 101', new Set(), codes)).toEqual([])
+  })
+})
+
+describe('steady number', () => {
+  it('finds the number every read agrees on, preferring longer ones', () => {
+    expect(steadyNumber(['I M T E 30 I U4 9 101 B 1 BC 026', '5 I H T 3 30 I RE 9 101 1 BC 26', 'Taigo 3 O04 9 101 # 4'])).toBe('101')
+  })
+
+  it('needs at least two reads to agree', () => {
+    expect(steadyNumber(['MEP 101', 'nothing here'])).toBeNull()
+  })
+})
+
+describe('promo numbers need a real digit', () => {
+  it('does not read a lone letter as a number', () => {
+    expect(cardCandidates('EX W M E 11/S 3 P 0 MEP G 75 SR', new Set(), new Set(['MEP']))).toEqual([])
   })
 })

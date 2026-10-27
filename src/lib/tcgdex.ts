@@ -38,7 +38,7 @@ export function mapSetId(set: { id: string; name: string }, tcgdexSets: TcgdexSe
   return byName.length === 1 ? byName[0].id : null
 }
 
-interface TcgdexCardmarket {
+export interface TcgdexCardmarket {
   updated?: string
   avg?: number | null
   trend?: number | null
@@ -61,7 +61,7 @@ export function toCardmarket(cm: TcgdexCardmarket | null | undefined): Card['car
   return { updatedAt: cm.updated?.slice(0, 10).replace(/-/g, '/'), prices, source: 'tcgdex' }
 }
 
-interface TcgdexVariants {
+export interface TcgdexVariants {
   normal?: boolean
   holo?: boolean
   reverse?: boolean
@@ -92,7 +92,7 @@ async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-async function getJson<T>(path: string): Promise<T | null> {
+export async function getJson<T>(path: string): Promise<T | null> {
   return withSlot(async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -113,7 +113,7 @@ const SETS_MAX_AGE = 3 * 24 * 60 * 60 * 1000
 let setsPromise: Promise<TcgdexSet[]> | null = null
 
 /** TCGdex's set list (one small request), kept on the device for a few days. */
-function tcgdexSets(): Promise<TcgdexSet[]> {
+export function tcgdexSets(): Promise<TcgdexSet[]> {
   if (!setsPromise) {
     setsPromise = (async () => {
       try {
@@ -152,6 +152,8 @@ export async function withTcgdexPrices(cards: Card[]): Promise<Card[]> {
   const setIds = new Map<string, string | null>()
   return Promise.all(
     cards.map(async (card) => {
+      // Cards from sets only TCGdex has already carry its prices.
+      if (card.id.startsWith('tcgdex:')) return card
       if (!setIds.has(card.set.id)) setIds.set(card.set.id, mapSetId(card.set, sets))
       const tid = setIds.get(card.set.id)
       if (!tid) return card

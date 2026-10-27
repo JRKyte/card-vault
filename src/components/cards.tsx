@@ -22,7 +22,8 @@ export function CardImage({
   rounded?: number
 }) {
   const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
+  // Some cards (a few TCGdex-only promos) have no image anywhere; show the name instead.
+  const [failed, setFailed] = useState(!card.images[size])
   return (
     <div className={`relative aspect-[63/88] overflow-hidden ${className}`} style={{ background: tintGradient(card), borderRadius: rounded, ...style }}>
       {!failed && (

@@ -74,6 +74,8 @@ The app icon is `public/icon.svg`. After editing it, regenerate the PNGs with `n
 
 - The slanted number font often makes "/" read as "7" or "1", so a run like `1287142` is split using the real set sizes (`src/lib/scan.ts`).
 - Works best on Scarlet & Violet and newer cards (set code next to the number) and on main-set cards. Gallery numbers (TG05/TG30) and secret rares are less reliable; older cards may give a short list to pick from.
+- Promos print a code and bare number ("MEP EN 101"). The white-on-dark code often doesn't read in a photo, so if only the number does, the scanner offers that number in the newest promo sets to pick from. Blurry photos or dark text on a coloured background may not read at all; then type it (e.g. "MEP 29").
+- It never guesses from a single stray read: a match needs a clean "number/total", a promo code, or several attempts agreeing.
 - iPhone and iPad also have **Live Text**: tap the search box, tap it again and choose **Scan Text** to read the number straight into search.
 
 ## Editing the app's data
@@ -109,6 +111,7 @@ The nine Pokémon on the Settings screen each point at a card id. Change one to 
 
 ## Good to know
 
+- **Sets pokemontcg.io doesn't have** (MEP Black Star Promos, Mega Evolution Energy, McDonald's 2023/2024, trainer kits and a few others) come from TCGdex instead (`src/lib/tcgdexCards.ts`). Their ids start with `tcgdex:` (e.g. `tcgdex:mep-101`) so the app knows where to load them. Images come from TCGdex, or from Scrydex for sets TCGdex has no pictures for; a few older cards have no image anywhere and show their name. Search finds them by name, or by code and number ("MEP 101"). TCG Pocket (digital) sets are left out.
 - **Prices.** USD is TCGplayer's market price via pokemontcg.io. EUR is Cardmarket's trend price via TCGdex, updated daily and covering new sets; pokemontcg.io's own EUR prices stopped updating in November 2025, so they're only used when TCGdex doesn't have a card. TCGdex has no bulk price endpoint, so prices are fetched card by card and cached in Supabase for a day (`src/lib/tcgdex.ts`).
 - **Prices show in pounds by default.** There's no GBP price source, so £ is Cardmarket's EUR price × 0.85 (`EUR_TO_GBP` in `src/lib/pricing.ts`); cards with no EUR price show in dollars instead. **Settings → Show prices in** switches to USD or EUR. (The database stores the GBP choice as `both`, its old "USD and EUR" value, so no migration is needed.)
 - **2026 sets have no USD prices** in pokemontcg.io (as of October 2026), so dollar totals leave those cards out. GBP and EUR totals are the most complete.

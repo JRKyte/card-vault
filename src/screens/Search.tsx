@@ -51,7 +51,7 @@ export function Search() {
 
   const debounced = useDebounced(term, 300)
   const q = searchQueryFor(debounced)
-  const search = useSearch(q)
+  const search = useSearch(q ? debounced.trim() : null)
   // Waiting covers the debounce too, so the spinner appears as soon as you type.
   const waiting = !!searchQueryFor(term) && (search.isFetching || term !== debounced)
   const slow = useSlow(waiting && search.isFetching, 4000)
@@ -159,7 +159,7 @@ export function Search() {
               ? slow
                 ? 'Still searching, the card database is slow…'
                 : 'Searching…'
-              : `${search.data?.totalCount ?? 0} cards match "${debounced.trim()}"`}
+              : `${search.data?.totalCount ?? 0} ${search.data?.totalCount === 1 ? 'card matches' : 'cards match'} "${debounced.trim()}"`}
           </div>
           <Segmented
             label="Search scope"
@@ -206,7 +206,7 @@ export function Search() {
         </div>
       )}
 
-      <p className="mt-2 text-center text-[13px] text-mute">Can't find it? Try the number on the card, like 128/142</p>
+      <p className="mt-2 text-center text-[13px] text-mute">Can't find it? Try the number on the card, like 128/142, or MEP 101 for promos</p>
       {quickCard && <QuickAddSheet card={quickCard} onClose={() => setQuickCard(null)} />}
     </Screen>
   )

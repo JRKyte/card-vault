@@ -5,6 +5,7 @@ import { applyExclusions } from './sets'
 import { store, type Cached, type CustomSet, type PriceHistoryRow } from './store'
 import { allCards, allSets, cardsByIds, setCards, VARIANTS, type Card, type TcgSet } from './tcg'
 import { withTcgdexPrices } from './tcgdex'
+import { extraSets, isTcgdexId, tcgdexCards, tcgdexSetCards } from './tcgdexCards'
 
 export const FRESH_MS = 24 * 60 * 60 * 1000
 
@@ -58,7 +59,15 @@ export async function loadCards(ids: string[], opts: { force?: boolean } = {}): 
   const need = opts.force ? unique : unique.filter((id) => !fresh.has(id))
   if (need.length) {
     try {
-      const fetched = await withTcgdexPrices(await cardsByIds(need))
+      // Cards from sets only TCGdex has load from TCGdex; the rest from pokemontcg.io.
+      const [fromPtcg, fromTcgdex] = await Promise.all([
+        (async () => {
+          const ids = need.filter((id) => !isTcgdexId(id))
+          return ids.length ? withTcgdexPrices(await cardsByIds(ids)) : []
+        })(),
+        tcgdexCards(need.filter(isTcgdexId)),
+      ])
+      const fetched = [...fromPtcg, ...fromTcgdex]
       for (const c of fetched) map.set(c.id, c)
       await remember(fetched).catch(() => undefined)
     } catch (e) {
@@ -74,7 +83,7 @@ export async function loadSetCards(set: Pick<TcgSet, 'id' | 'total'>, opts: { fo
   const complete = cached.length >= set.total && cached.every(isFreshCard)
   if (complete && !opts.force) return cached.map((c) => c.data)
   try {
-    const cards = await withTcgdexPrices(await setCards(set.id))
+    const cards = isTcgdexId(set.id) ? await tcgdexSetCards(set.id) : await withTcgdexPrices(await setCards(set.id))
     await remember(cards).catch(() => undefined)
     return cards
   } catch (e) {
@@ -83,13 +92,20 @@ export async function loadSetCards(set: Pick<TcgSet, 'id' | 'total'>, opts: { fo
   }
 }
 
-/** All official sets, newest first. */
+/**
+ * All official sets, newest first: pokemontcg.io's, plus the physical sets only TCGdex has
+ * (e.g. MEP promos). A cached list from before TCGdex sets were added counts as stale.
+ */
 export async function loadSets(opts: { force?: boolean } = {}): Promise<TcgSet[]> {
   const cached = await store.getCachedSets().catch(() => [] as Cached<TcgSet>[])
   const sortNewest = (sets: TcgSet[]) => [...sets].sort((a, b) => b.releaseDate.localeCompare(a.releaseDate))
-  if (cached.length && cached.every((c) => isFresh(c.fetched_at)) && !opts.force) return sortNewest(cached.map((c) => c.data))
+  const usable = cached.length && cached.every((c) => isFresh(c.fetched_at)) && cached.some((c) => isTcgdexId(c.data.id))
+  if (usable && !opts.force) return sortNewest(cached.map((c) => c.data))
   try {
-    const sets = await allSets()
+    const ptcg = await allSets()
+    // TCGdex being down shouldn't hide pokemontcg.io's sets.
+    const extra = await extraSets(ptcg).catch(() => [] as TcgSet[])
+    const sets = [...ptcg, ...extra]
     await store.putSets(sets).catch(() => undefined)
     return sortNewest(sets)
   } catch (e) {
