@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardTile } from '../components/cards'
 import { MasteredCelebration } from '../components/Celebrate'
-import { IconCheck, IconEdit, IconPlus, IconRefresh, IconX } from '../components/icons'
+import { IconEdit, IconPlus, IconRefresh, IconX } from '../components/icons'
 import { QuickAddSheet } from '../components/QuickAdd'
 import { SetIcon } from '../components/SetBits'
 import { BackPill, ErrorMessage, Message, ProgressBar, Screen, Segmented, Skeleton, StatusPill, tint, TopRow } from '../components/ui'
@@ -239,15 +239,7 @@ function SetBody({
   const mode = useCurrencyMode()
   const [filter, setFilter] = useState<Filter>('all')
   const [quickCard, setQuickCard] = useState<Card | null>(null)
-  const [toast, setToast] = useState<{ key: number; text: string } | null>(null)
   const [mastered, setMastered] = useState<SetSummary | null>(null)
-
-  // "Added …" confirmation after a quick add, gone after a couple of seconds.
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 2200)
-    return () => clearTimeout(t)
-  }, [toast])
 
   const sorted = useMemo(() => (cards ? sortCards(cards) : undefined), [cards])
   const ids = useMemo(() => (sorted ?? []).map((c) => c.id), [sorted])
@@ -378,21 +370,8 @@ function SetBody({
         <QuickAddSheet
           card={quickCard}
           onClose={() => setQuickCard(null)}
-          onAdded={(card, completed) => {
-            setToast({ key: Date.now(), text: `Added ${card.name}` })
-            if (completed) setMastered(completed)
-          }}
+          onAdded={(_card, completed) => completed && setMastered(completed)}
         />
-      )}
-      {toast && (
-        <div
-          key={toast.key}
-          role="status"
-          className="animate-fade-up fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[rgba(52,211,153,.35)] bg-[#12201c] px-4 py-3 text-[14px] font-semibold text-up"
-          style={{ bottom: 'calc(24px + env(safe-area-inset-bottom))', boxShadow: '0 0 24px rgba(52,211,153,.3), 0 12px 30px rgba(0,0,0,.4)' }}
-        >
-          <IconCheck size={18} /> {toast.text}
-        </div>
       )}
       {mastered && <MasteredCelebration setName={mastered.name} colors={[mastered.color, '#a78bfa', '#f472b6', '#fef3c7']} onDone={() => setMastered(null)} />}
     </Screen>

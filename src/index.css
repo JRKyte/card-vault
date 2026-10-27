@@ -36,6 +36,8 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   background: var(--color-bg);
+  /* No pinch or double-tap zoom: scrolling only, so the layout can't be knocked out of place. */
+  touch-action: pan-x pan-y;
 }
 
 body {
@@ -71,6 +73,13 @@ button {
     display: flex;
     flex-direction: column;
     gap: 18px;
+  }
+  /* Above the floating back button on inner pages, and above the tab bar on the main ones. */
+  .toast {
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  [data-nav] .toast {
+    bottom: calc(96px + env(safe-area-inset-bottom));
   }
   /* Room for the floating tab bar on the screens that show it. */
   [data-nav] .page {
@@ -359,4 +368,9 @@ button {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* Search fields use our own clear button. */
+.search-input::-webkit-search-cancel-button {
+  appearance: none;
 }

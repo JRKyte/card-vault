@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { variantsFor } from '../lib/pricing'
+import { useCard } from '../lib/queries'
 import type { SetSummary } from '../lib/summaries'
 import type { Card } from '../lib/tcg'
 import { AddFields, useAddCard, type AddFieldsValue } from './AddForm'
@@ -8,9 +9,18 @@ import { IconPlus, IconX } from './icons'
 import { Modal } from './ui'
 
 /** Drawer for adding a card straight from a grid, without opening the card screen. */
-export function QuickAddSheet({ card, onClose, onAdded }: { card: Card; onClose: () => void; onAdded: (card: Card, completed: SetSummary | null) => void }) {
+export function QuickAddSheet({ card: given, onClose, onAdded }: { card: Card; onClose: () => void; onAdded?: (card: Card, completed: SetSummary | null) => void }) {
+  // Search results come without TCGdex prices and versions; load the full card for the form.
+  const full = useCard(given.id)
+  const card = full.data ?? given
   const [value, setValue] = useState<AddFieldsValue>({ variant: variantsFor(card)[0], condition: 'near_mint', quantity: 1 })
   const { add, isPending, isError } = useAddCard(card)
+
+  // If the full card lists different versions, keep the choice valid.
+  const variants = variantsFor(card)
+  useEffect(() => {
+    if (!variants.includes(value.variant)) setValue((v) => ({ ...v, variant: variants[0] }))
+  }, [variants, value.variant])
 
   return (
     <Modal onClose={onClose} title={`Add ${card.name}`}>
@@ -35,7 +45,7 @@ export function QuickAddSheet({ card, onClose, onAdded }: { card: Card; onClose:
           disabled={isPending}
           onClick={() =>
             add(value, (completed) => {
-              onAdded(card, completed)
+              onAdded?.(card, completed)
               onClose()
             })
           }

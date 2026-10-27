@@ -3,9 +3,10 @@
 import { useMemo } from 'react'
 import { useCurrencyMode } from '../lib/money'
 import { CONDITION_LABEL, CONDITIONS, displayPrice, ebaySoldGbp, fmtGbp, priceFor, VARIANT_LABEL, variantsFor, type Condition } from '../lib/pricing'
-import { useAddItem, useCollection, useCustomMembership, useCustomSets, useSets } from '../lib/queries'
+import { useAddItem, useCollection, useCustomMembership, useCustomSets, useDeleteItem, useSets, useUpdateItem } from '../lib/queries'
 import { setsForCard, type SetSummary } from '../lib/summaries'
 import type { Card, Variant } from '../lib/tcg'
+import { useToast } from './Toast'
 
 export interface AddFieldsValue {
   variant: Variant
@@ -106,7 +107,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (n: number) => 
 
 /**
  * Adding a card: the sets it counts towards, and an add() that reports which set (if any) the
- * add just completed, so the caller can celebrate.
+ * add just completed, so the caller can celebrate. Every add shows an "Added · Undo" toast.
  */
 export function useAddCard(card: Card) {
   const { items, cards, owned } = useCollection()
@@ -114,6 +115,9 @@ export function useAddCard(card: Card) {
   const customSets = useCustomSets()
   const membership = useCustomMembership()
   const mutation = useAddItem()
+  const update = useUpdateItem()
+  const remove = useDeleteItem()
+  const toast = useToast()
 
   const cardSets = useMemo(
     () => setsForCard(card, sets.data, customSets.data, membership.members, items, cards, owned),
@@ -126,9 +130,21 @@ export function useAddCard(card: Card) {
     mutation.mutate(
       { card, ...value },
       {
-        onSuccess: () => {
+        onSuccess: (row) => {
           const completed = wasOwned ? null : (before.find((s) => s.progress.total > 0 && s.progress.owned + 1 === s.progress.total) ?? null)
           onDone?.(completed)
+          toast({
+            text: value.quantity > 1 ? `Added ${value.quantity} × ${card.name}` : `Added ${card.name}`,
+            action: {
+              label: 'Undo',
+              // Take back exactly what was added: drop the row if it was new, else lower the count.
+              onClick: () => {
+                const left = row.quantity - value.quantity
+                if (left > 0) update.mutate({ id: row.id, patch: { quantity: left } })
+                else remove.mutate(row.id)
+              },
+            },
+          })
         },
       },
     )

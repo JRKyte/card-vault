@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Thumb } from '../components/cards'
-import { IconCheck, IconChevronRight, IconPlus, IconSearch } from '../components/icons'
+import { IconCheck, IconChevronRight, IconPlus, IconSearch, IconX } from '../components/icons'
+import { QuickAddSheet } from '../components/QuickAdd'
 import { BackPill, ErrorMessage, Message, PageHeader, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
 import { draftCards, loadDraft, setDraftCards } from '../lib/draft'
 import { useCurrencyMode } from '../lib/money'
@@ -9,6 +10,27 @@ import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
 import { useCollection, useCustomMembership, useCustomSetMembership, useCustomSets, useSearch, useTracked } from '../lib/queries'
 import { sortCards } from '../lib/sets'
 import { searchQueryFor, type Card } from '../lib/tcg'
+
+/** True once `active` has stayed true for `ms`. */
+function useSlow(active: boolean, ms: number) {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    setSlow(false)
+    if (!active) return
+    const t = setTimeout(() => setSlow(true), ms)
+    return () => clearTimeout(t)
+  }, [active, ms])
+  return slow
+}
+
+function Spinner() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" className="animate-spin text-accent" aria-label="Searching" role="img">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity=".25" strokeWidth="3" />
+      <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value)
@@ -30,6 +52,11 @@ export function Search() {
   const debounced = useDebounced(term, 300)
   const q = searchQueryFor(debounced)
   const search = useSearch(q)
+  // Waiting covers the debounce too, so the spinner appears as soon as you type.
+  const waiting = !!searchQueryFor(term) && (search.isFetching || term !== debounced)
+  const slow = useSlow(waiting && search.isFetching, 4000)
+  const [quickCard, setQuickCard] = useState<Card | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const tracked = useTracked()
   const customSets = useCustomSets()
@@ -82,6 +109,7 @@ export function Search() {
       >
         <IconSearch size={24} className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-accent" />
         <input
+          ref={inputRef}
           type="search"
           inputMode="search"
           enterKeyHint="search"
@@ -91,15 +119,37 @@ export function Search() {
           placeholder="Card name or number"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          className="min-h-16 w-full rounded-[22px] bg-transparent pr-5 pl-14 text-[20px] font-semibold outline-none placeholder:font-medium placeholder:text-mute"
+          className="search-input min-h-16 w-full rounded-[22px] bg-transparent pr-[92px] pl-14 text-[20px] font-semibold outline-none placeholder:font-medium placeholder:text-mute"
           aria-label="Search cards"
         />
+        <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
+          {waiting && <Spinner />}
+          {term && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="grid h-11 w-11 place-items-center rounded-full text-mute transition-colors hover:bg-[var(--chip)] hover:text-ink"
+              onClick={() => {
+                setTerm('')
+                inputRef.current?.focus()
+              }}
+            >
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-white/12">
+                <IconX size={14} strokeWidth={2.6} />
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {q && (
+      {q && term && (
         <div className="flex items-center justify-between gap-3">
           <div className="mono truncate text-[12px] font-medium text-mute">
-            {search.isFetching && !search.data ? 'Searching…' : `${search.data?.totalCount ?? 0} cards match "${debounced.trim()}"`}
+            {waiting && (!search.data || search.isPlaceholderData)
+              ? slow
+                ? 'Still searching, the card database is slow…'
+                : 'Searching…'
+              : `${search.data?.totalCount ?? 0} cards match "${debounced.trim()}"`}
           </div>
           <Segmented
             label="Search scope"
@@ -113,7 +163,7 @@ export function Search() {
         </div>
       )}
 
-      {!q ? (
+      {!q || !term ? (
         <EmptyPrompt picking={picking} />
       ) : search.isLoading ? (
         <div className="flex flex-col gap-2">
@@ -131,7 +181,13 @@ export function Search() {
             picking ? (
               <ResultRow key={c.id} card={c} onClick={() => pick(c)} trailing={<PickButton picked={isPicked(c)} name={targetName} />} />
             ) : (
-              <ResultRow key={c.id} card={c} onClick={() => navigate(`/add/${c.id}`)} trailing={<IconChevronRight className="text-mute" />} />
+              <ResultRow
+                key={c.id}
+                card={c}
+                onClick={() => navigate(`/add/${c.id}`)}
+                trailing={<IconChevronRight className="text-mute" />}
+                onQuickAdd={() => setQuickCard(c)}
+              />
             ),
           )}
           {(search.data?.totalCount ?? 0) > (search.data?.data.length ?? 0) && (
@@ -141,29 +197,39 @@ export function Search() {
       )}
 
       <p className="mt-2 text-center text-[13px] text-mute">Can't find it? Try the number on the card, like 128/142</p>
+      {quickCard && <QuickAddSheet card={quickCard} onClose={() => setQuickCard(null)} />}
     </Screen>
   )
 }
 
-function ResultRow({ card, onClick, trailing }: { card: Card; onClick: () => void; trailing: React.ReactNode }) {
+function ResultRow({ card, onClick, trailing, onQuickAdd }: { card: Card; onClick: () => void; trailing: React.ReactNode; onQuickAdd?: () => void }) {
   const mode = useCurrencyMode()
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="surface flex items-center gap-3.5 !rounded-[20px] p-2.5 pr-4 text-left transition-[transform,border-color] duration-200 hover:border-accent active:scale-[0.99]"
-    >
-      <Thumb card={card} width={54} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[16px] font-semibold">{card.name}</div>
-        <div className="truncate text-[12.5px] text-mute">
-          {card.set.name} · {card.number}
-          {card.rarity && ` · ${card.rarity}`}
+    <div className="surface flex items-center !rounded-[20px] transition-colors hover:border-accent">
+      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3.5 p-2.5 pr-3 text-left active:opacity-80">
+        <Thumb card={card} width={54} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[16px] font-semibold">{card.name}</div>
+          <div className="truncate text-[12.5px] text-mute">
+            {card.set.name} · {card.number}
+            {card.rarity && ` · ${card.rarity}`}
+          </div>
         </div>
-      </div>
-      {(bestUsd(card) ?? bestEur(card)) !== null && <div className="mono shrink-0 text-[13px] font-semibold text-up">{displayPrice(mode, bestUsd(card), bestEur(card))}</div>}
-      {trailing}
-    </button>
+        {(bestUsd(card) ?? bestEur(card)) !== null && <div className="mono shrink-0 text-[13px] font-semibold text-up">{displayPrice(mode, bestUsd(card), bestEur(card))}</div>}
+        {!onQuickAdd && trailing}
+      </button>
+      {onQuickAdd && (
+        <button
+          type="button"
+          onClick={onQuickAdd}
+          aria-label={`Quick add ${card.name}`}
+          className="mr-3 grid h-10 w-10 flex-none place-items-center rounded-full text-white transition-transform active:scale-90"
+          style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', boxShadow: '0 0 0 1px rgba(196,181,253,.5), 0 0 16px rgba(139,92,246,.6)' }}
+        >
+          <IconPlus size={18} strokeWidth={2.6} />
+        </button>
+      )}
+    </div>
   )
 }
 

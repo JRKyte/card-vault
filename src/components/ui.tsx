@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { alpha } from '../lib/color'
@@ -23,22 +23,58 @@ export function Screen({ glow, children, className = '' }: { glow?: string; chil
   )
 }
 
-/** Back pill. Goes back in history when there is some, else to `fallback`. */
+/** True once the page has scrolled past `y` pixels. */
+function useScrolledPast(y: number) {
+  const [past, setPast] = useState(() => typeof window !== 'undefined' && window.scrollY > y)
+  useEffect(() => {
+    const onScroll = () => setPast(window.scrollY > y)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [y])
+  return past
+}
+
+/**
+ * Back pill. Goes back in history when there is some, else to `fallback`. Once the page scrolls
+ * past it, a floating copy appears bottom-left so long pages don't need scrolling back up.
+ */
 export function BackPill({ label, to, fallback = '/' }: { label: string; to?: string; fallback?: string }) {
   const navigate = useNavigate()
+  const floating = useScrolledPast(120)
+  const go = () => {
+    if (to) navigate(to)
+    else if (window.history.state?.idx > 0) navigate(-1)
+    else navigate(fallback)
+  }
   return (
-    <button
-      type="button"
-      className="chip-btn max-w-full !pl-3"
-      onClick={() => {
-        if (to) navigate(to)
-        else if (window.history.state?.idx > 0) navigate(-1)
-        else navigate(fallback)
-      }}
-    >
-      <IconChevronLeft size={16} strokeWidth={2.4} />
-      <span className="truncate">{label}</span>
-    </button>
+    <>
+      <button type="button" className="chip-btn max-w-full !pl-3" onClick={go}>
+        <IconChevronLeft size={16} strokeWidth={2.4} />
+        <span className="truncate">{label}</span>
+      </button>
+      {floating &&
+        createPortal(
+          <button
+            type="button"
+            onClick={go}
+            aria-label={label}
+            className="animate-fade-up fixed left-4 z-40 flex h-[50px] max-w-[60vw] items-center gap-1.5 rounded-full pr-5 pl-3.5 text-[14px] font-semibold text-ink"
+            style={{
+              bottom: 'calc(22px + env(safe-area-inset-bottom))',
+              background: 'rgba(24,19,36,.82)',
+              border: '1px solid rgba(255,255,255,.1)',
+              WebkitBackdropFilter: 'blur(18px)',
+              backdropFilter: 'blur(18px)',
+              boxShadow: '0 12px 40px rgba(0,0,0,.35)',
+            }}
+          >
+            <IconChevronLeft size={20} strokeWidth={2.4} />
+            <span className="truncate">{label}</span>
+          </button>,
+          document.body,
+        )}
+    </>
   )
 }
 
