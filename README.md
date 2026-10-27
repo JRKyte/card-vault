@@ -86,6 +86,8 @@ The **Swaps** tab lets two collectors see which cards they could swap.
 
 **Add → Scan card** opens the camera. Line the card up in the frame with its number line (e.g. `SCR EN 128/142`) inside the yellow strip, and tap the button. The number is read on the phone itself with [Tesseract.js](https://tesseract.projectnaptha.com/) (free; ~10MB downloads the first time, then it's cached), searched, and the quick-add drawer opens. If several cards match, you pick one; if nothing reads, you can type the number instead.
 
+**Rapid** mode (the switch at the top) is for a pile of cards: the camera keeps reading, and each card it's sure of drops into a tray with a beep. Hold one card at a time on the strip, then swap to the next. A card left in view isn't added twice; show it again after a few seconds to count another copy. Cards it isn't sure of go in the tray marked "?" for you to pick. **Review** lets you change versions, conditions and counts, then **Add all** adds the lot with one Undo. The tray survives closing the scanner by accident (until the tab closes).
+
 - The slanted number font often makes "/" read as "7" or "1", so a run like `1287142` is split using the real set sizes (`src/lib/scan.ts`).
 - Works best on Scarlet & Violet and newer cards (set code next to the number) and on main-set cards. Gallery numbers (TG05/TG30) and secret rares are less reliable; older cards may give a short list to pick from.
 - Promos print a code and bare number ("MEP EN 101"). The white-on-dark code often doesn't read in a photo, so if only the number does, the scanner offers that number in the newest promo sets to pick from. Blurry photos or dark text on a coloured background may not read at all; then type it (e.g. "MEP 29").

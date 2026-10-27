@@ -106,6 +106,16 @@ function otsu(grey: Uint8ClampedArray): number {
   return threshold
 }
 
+export interface StripRead {
+  text: string
+  candidates: CardText[]
+  /**
+   * A clean read, a promo code, or several attempts agreeing. Rapid scan only acts on these, so
+   * an empty frame or a blurry card never adds anything by itself.
+   */
+  confident: boolean
+}
+
 /**
  * Read the number line from a crop of the card's bottom strip. `knownTotals` (every set's printed
  * size) lets a misread slash still give the right number; `knownCodes` lets promo numbers through.
@@ -117,7 +127,7 @@ export async function readStrip(
   knownCodes: ReadonlySet<string>,
   /** Newest promo set codes, tried with a bare number when no code could be read. */
   promoFallback: string[] = [],
-): Promise<{ text: string; candidates: CardText[] }> {
+): Promise<StripRead> {
   const worker = await warmUpOcr()
   let lastText = ''
   const leftReads: string[] = []
@@ -133,7 +143,7 @@ export async function readStrip(
     if (region === 'left') leftReads.push(lastText)
     const strong = strongCandidates(lastText, knownTotals, knownCodes)
     if (import.meta.env.DEV) console.debug('[scan]', region, JSON.stringify(pass), JSON.stringify(lastText), strong)
-    if (strong.length) return { text: lastText, candidates: strong }
+    if (strong.length) return { text: lastText, candidates: strong, confident: true }
     for (const candidate of cardCandidates(lastText, knownTotals, knownCodes)) {
       const key = `${candidate.number}/${candidate.total}`
       const seen = guessed.get(key)
@@ -144,13 +154,13 @@ export async function readStrip(
   // No confident read. Best next: a pieced-together number/total that several attempts agree on.
   const ranked = [...guessed.values()].sort((a, b) => b.count - a.count || a.order - b.order)
   const agreed = ranked.filter((g) => g.count >= 2).map((g) => g.candidate)
-  if (agreed.length) return { text: lastText, candidates: agreed.slice(0, 3) }
+  if (agreed.length) return { text: lastText, candidates: agreed.slice(0, 3), confident: true }
 
   // Then a bare number the left-half reads agree on: most likely a promo whose white-on-dark set
   // code didn't read, so try it in the newest promo sets.
   const steady = steadyNumber(leftReads)
-  if (steady && promoFallback.length) return { text: lastText, candidates: promoFallback.map((setCode) => ({ number: steady, total: null, setCode })) }
+  if (steady && promoFallback.length) return { text: lastText, candidates: promoFallback.map((setCode) => ({ number: steady, total: null, setCode })), confident: false }
 
   // Last resort: one-off guesses.
-  return { text: lastText, candidates: ranked.slice(0, 3).map((g) => g.candidate) }
+  return { text: lastText, candidates: ranked.slice(0, 3).map((g) => g.candidate), confident: false }
 }
