@@ -16,7 +16,7 @@ const icon = (d: string) => (
   </svg>
 )
 
-/** Floating pill tab bar. Add sits in the middle as a round gradient button. */
+/** Floating pill tab bar, icons only. Add sits in the middle as a round gradient button. */
 export function Nav() {
   const { pathname } = useLocation()
   const friends = useFriends()
@@ -62,15 +62,14 @@ export function Nav() {
             to={to}
             aria-label={requests && label === 'Swaps' ? `${label}, ${requests} friend request${requests > 1 ? 's' : ''}` : label}
             aria-current={active ? 'page' : undefined}
-            className="relative flex h-[50px] items-center gap-2 rounded-full text-[14px] font-semibold transition-all duration-[250ms]"
+            className="relative grid h-[50px] w-[54px] place-items-center rounded-full transition-all duration-[250ms]"
             style={
               active
-                ? { padding: '0 18px', color: '#fff', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', boxShadow: '0 0 24px rgba(139,92,246,.6)' }
-                : { padding: '0 13px', color: 'var(--color-nav-ink)' }
+                ? { color: '#fff', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', boxShadow: '0 0 24px rgba(139,92,246,.6)' }
+                : { color: 'var(--color-nav-ink)' }
             }
           >
             {icon(d)}
-            {active && <span>{label}</span>}
             {label === 'Swaps' && requests > 0 && (
               <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-[#f472b6]" style={{ boxShadow: '0 0 0 2px rgba(24,19,36,.9), 0 0 8px #f472b6' }} />
             )}
