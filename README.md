@@ -84,15 +84,25 @@ The **Swaps** tab lets two collectors see which cards they could swap.
 
 ## Scanning cards
 
-**Add → Scan card** opens the camera. Line the card up in the frame with its number line (e.g. `SCR EN 128/142`) inside the yellow strip, and tap the button. The number is read on the phone itself with [Tesseract.js](https://tesseract.projectnaptha.com/) (free; ~10MB downloads the first time, then it's cached), searched, and the quick-add drawer opens. If several cards match, you pick one; if nothing reads, you can type the number instead.
+**Add → Scan card** opens the camera. Fit the card in the frame and tap the button. The card is recognised by its **picture**: two small image models ([DINOv2-small](https://huggingface.co/onnx-community/dinov2-small) and [MobileCLIP-S0](https://huggingface.co/Xenova/mobileclip_s0), run on the phone with [Transformers.js](https://huggingface.co/docs/transformers.js)) each turn it into a fingerprint, which is compared with the fingerprints of every card. Free, no server, no account. The first time the scanner opens it downloads the models (~47MB) and fingerprints (~19MB); after that they're cached on the phone.
 
-**Rapid** mode (the switch at the top) is for a pile of cards: the camera keeps reading, and each card it's sure of drops into a tray with a beep. Hold one card at a time on the strip, then swap to the next. A card left in view isn't added twice; show it again after a few seconds to count another copy. Cards it isn't sure of go in the tray marked "?" for you to pick. **Review** lets you change versions, conditions and counts, then **Add all** adds the lot with one Undo. The tray survives closing the scanner by accident (until the tab closes).
+- When one card is clearly closest, its add drawer opens. Closing it without adding shows the next closest cards, in case it picked the wrong one.
+- When it isn't sure, it shows the closest six pictures to tap. Meanwhile it reads the number on the bottom ([Tesseract.js](https://tesseract.projectnaptha.com/)); if that fits one of them, that card moves to the front tagged "Number matches".
+- Reprints with the same art (e.g. Base Set and Legendary Collection Charizard) look the same to it; check the set when you add.
+- Shiny cards in sleeves or toploaders are the hardest: glare covers the picture. Take them out if it struggles.
+- **Use a photo instead** lets you take the picture with the phone's own camera, which focuses better close up.
 
-- The slanted number font often makes "/" read as "7" or "1", so a run like `1287142` is split using the real set sizes (`src/lib/scan.ts`).
-- Works best on Scarlet & Violet and newer cards (set code next to the number) and on main-set cards. Gallery numbers (TG05/TG30) and secret rares are less reliable; older cards may give a short list to pick from.
-- Promos print a code and bare number ("MEP EN 101"). The white-on-dark code often doesn't read in a photo, so if only the number does, the scanner offers that number in the newest promo sets to pick from. Blurry photos or dark text on a coloured background may not read at all; then type it (e.g. "MEP 29").
-- It never guesses from a single stray read: a match needs a clean "number/total", a promo code, or several attempts agreeing.
-- iPhone and iPad also have **Live Text**: tap the search box, tap it again and choose **Scan Text** to read the number straight into search.
+**Rapid** mode (the switch at the top) is for a pile of cards: the camera keeps looking, and each card goes into a tray with a beep. Hold one card at a time in the frame, then swap to the next. A card left in view isn't added twice; show it again after a few seconds to count another copy. Cards it isn't sure of go in the tray marked "?" with the closest pictures to pick from. **Review** lets you change versions, conditions and counts, then **Add all** adds the lot with one Undo. The tray survives closing the scanner by accident (until the tab closes).
+
+### Updating the fingerprints for new sets
+
+New sets aren't recognised until the fingerprints are rebuilt:
+
+```bash
+npm run fingerprints
+```
+
+It lists every card (pokemontcg.io's data plus the TCGdex-only sets), downloads each card's small image into `.fingerprint-cache/` (~3GB the first time, only new cards after that), fingerprints them (about 30ms a card per model) and writes `public/fingerprints/`. Commit that folder and deploy. The models are set in `src/lib/artmatch-config.json`; changing one means rebuilding everything. A few very old promos have no image online and can't be recognised.
 
 ## Editing the app's data
 

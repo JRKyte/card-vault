@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cardCandidates, parseCardText, scanQuery, steadyNumber } from './scan'
+import { cardCandidates, parseCardText, steadyNumber } from './scan'
 
 describe('reading the number line', () => {
   it('reads set code, number and total from a modern card', () => {
@@ -24,25 +24,6 @@ describe('reading the number line', () => {
   it('gives up when there is no number', () => {
     expect(parseCardText('Pikachu HP 70')).toBeNull()
     expect(parseCardText('')).toBeNull()
-  })
-})
-
-describe('scan query', () => {
-  const codes: Record<string, string> = { SCR: 'sv7', LOR: 'swsh11' }
-  const lookup = (c: string) => codes[c] ?? null
-
-  it('uses the set when the code is known', () => {
-    expect(scanQuery({ number: '128', total: '142', setCode: 'SCR' }, lookup)).toBe('set.id:sv7 number:128')
-  })
-
-  it('includes gallery sub-sets', () => {
-    expect(scanQuery({ number: 'TG05', total: null, setCode: 'LOR' }, lookup)).toBe('set.id:swsh11* number:TG05')
-  })
-
-  it('falls back to the printed total', () => {
-    expect(scanQuery({ number: '4', total: '102', setCode: null }, lookup)).toBe('number:4 set.printedTotal:102')
-    expect(scanQuery({ number: '4', total: '102', setCode: 'XXX' }, lookup)).toBe('number:4 set.printedTotal:102')
-    expect(scanQuery({ number: 'TG05', total: null, setCode: null }, lookup)).toBe('number:TG05')
   })
 })
 

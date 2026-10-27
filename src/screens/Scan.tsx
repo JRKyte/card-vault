@@ -1,29 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Thumb } from '../components/cards'
-import { IconCamera, IconChevronRight, IconX } from '../components/icons'
+import { CardImage } from '../components/cards'
+import { IconCamera, IconX } from '../components/icons'
 import { QuickAddSheet } from '../components/QuickAdd'
 import { ReviewSheet, TrayStrip } from '../components/ScanTray'
 import { Modal } from '../components/ui'
+import { matchCard, warmUpArt, type ArtMatch } from '../lib/artmatch'
+import { loadCards } from '../lib/cards'
+import { identify, OPTIONS, PRESENT_SCORE, SURE_MARGIN, type Identified } from '../lib/identify'
 import { readStrip, warmUpOcr } from '../lib/ocr'
 import { useSets } from '../lib/queries'
-import { isPromoSet, type CardText } from '../lib/scan'
-import { findByNumber, setCodes } from '../lib/search'
-import { sortCards } from '../lib/sets'
+import { isPromoSet } from '../lib/scan'
+import { setCodes } from '../lib/search'
 import type { Card } from '../lib/tcg'
 import { addScan, loadTray, saveTray, type TrayItem } from '../lib/tray'
 
 type Phase = 'starting' | 'live' | 'reading' | 'no-camera'
 type Mode = 'single' | 'rapid'
-
-interface Outcome {
-  reads: CardText[]
-  text: string
-  cards: Card[]
+type Outcome = Identified & {
+  failed?: boolean
+  /** A card whose printed number was read too: shown first, tagged. */
+  numberMatch?: string
 }
 
 /** How long the same card can stay in view before scanning it again counts as another copy. */
 const SAME_CARD_MS = 8000
+/** In rapid mode, a card held this many looks in a row without a clear winner goes in the tray to pick. */
+const UNSURE_LOOKS = 3
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** A short soft "ping" when rapid scan catches a card. iOS only allows audio after a tap. */
 let audio: AudioContext | null = null
@@ -49,15 +54,30 @@ function ping() {
   osc.stop(audio.currentTime + 0.2)
 }
 
-/** Card scanner. Single: scan, then add. Rapid: keeps scanning into a tray, then add them all. */
+/** The bottom of a card picture, where the number is printed. */
+function bottomStrip(card: HTMLCanvasElement): HTMLCanvasElement {
+  const h = Math.round(card.height * 0.11)
+  const out = document.createElement('canvas')
+  out.width = card.width
+  out.height = h
+  out.getContext('2d')!.drawImage(card, 0, card.height - h, card.width, h, 0, 0, card.width, h)
+  return out
+}
+
+/**
+ * Card scanner. Cards are recognised by their picture; the number on the bottom, when it reads,
+ * settles which of the closest pictures it is. Single: scan, then add. Rapid: keeps scanning into
+ * a tray, then add them all.
+ */
 export function Scan() {
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const stripRef = useRef<HTMLDivElement>(null)
+  const guideRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<Phase>('starting')
+  const [ready, setReady] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [ocrReady, setOcrReady] = useState(false)
-  const [ocrError, setOcrError] = useState(false)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [quickCard, setQuickCard] = useState<Card | null>(null)
   const [mode, setModeState] = useState<Mode>(() => (sessionStorage.getItem('scan-mode') as Mode) || 'single')
@@ -85,10 +105,9 @@ export function Scan() {
     setTrayState(next)
   }, [])
 
-  // Promo set codes (MEP, SVP…): only promos print a bare number like "MEP EN 101", so only their
-  // codes count. A stray "SW 3" in the flavour text can't pass for Secret Wonders #3.
+  // For the number reader: promo set codes (MEP, SVP…) and every set size, so a misread slash
+  // ("1287142") can still be split into 128/142. See ocr.ts.
   const knownCodes = useMemo(() => new Set((sets.data ?? []).filter(isPromoSet).flatMap(setCodes)), [sets.data])
-  // The two newest promo sets (MEP, SV promos), tried when only a bare number could be read.
   const promoFallback = useMemo(
     () =>
       (sets.data ?? [])
@@ -98,8 +117,6 @@ export function Scan() {
         .slice(0, 2),
     [sets.data],
   )
-
-  // Every set size, so a misread slash ("1287142") can still be split into 128/142.
   const knownTotals = useMemo(() => {
     const totals = new Set<number>()
     for (const s of sets.data ?? []) {
@@ -109,13 +126,13 @@ export function Scan() {
     return totals
   }, [sets.data])
 
-  // Camera on while the screen is open; recogniser loads in the background.
+  // Camera on while the screen is open; the picture matcher loads in the background.
   useEffect(() => {
     let stream: MediaStream | null = null
     let cancelled = false
-    warmUpOcr()
-      .then(() => !cancelled && setOcrReady(true))
-      .catch(() => !cancelled && setOcrError(true))
+    warmUpArt()
+      .then(() => !cancelled && setReady(true))
+      .catch(() => !cancelled && setLoadError(true))
     ;(async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('No camera API')
@@ -135,29 +152,23 @@ export function Scan() {
     }
   }, [])
 
-  /** Search for each likely reading and merge what comes back. */
-  const findCards = useCallback(
-    async (reads: CardText[]) => {
-      const found = new Map<string, Card>()
-      await Promise.all(
-        reads.map(async (read) => {
-          try {
-            for (const c of await findByNumber(read, sets.data ?? [])) found.set(c.id, c)
-          } catch {
-            // One failed lookup shouldn't hide the others.
-          }
-        }),
-      )
-      return sortCards([...found.values()])
-    },
-    [sets.data],
-  )
+  // The number reader only helps single scans, so it loads only for those.
+  useEffect(() => {
+    if (mode !== 'single' || ocrReady) return
+    let cancelled = false
+    warmUpOcr()
+      .then(() => !cancelled && setOcrReady(true))
+      .catch(() => undefined) // Scanning still works by picture alone.
+    return () => {
+      cancelled = true
+    }
+  }, [mode, ocrReady])
 
-  /** The strip under the guide, cropped from the live video at full camera resolution. */
-  const cropStrip = useCallback((): HTMLCanvasElement | null => {
+  /** The card-shaped guide, cropped from the live video at full camera resolution. */
+  const cropGuide = useCallback((): HTMLCanvasElement | null => {
     const video = videoRef.current
-    const strip = stripRef.current
-    if (!video || !strip || !video.videoWidth) return null
+    const guide = guideRef.current
+    if (!video || !guide || !video.videoWidth) return null
     const vw = video.videoWidth
     const vh = video.videoHeight
     const box = video.getBoundingClientRect()
@@ -165,7 +176,7 @@ export function Scan() {
     const scale = Math.max(box.width / vw, box.height / vh)
     const offX = (box.width - vw * scale) / 2
     const offY = (box.height - vh * scale) / 2
-    const r = strip.getBoundingClientRect()
+    const r = guide.getBoundingClientRect()
     const sx = Math.max(0, (r.left - box.left - offX) / scale)
     const sy = Math.max(0, (r.top - box.top - offY) / scale)
     const sw = Math.min(vw - sx, r.width / scale)
@@ -177,18 +188,36 @@ export function Scan() {
     return canvas
   }, [])
 
-  /** Single mode: scan, then show the match (or matches) to add. */
-  async function scanFrame() {
-    const canvas = cropStrip()
-    if (!canvas || phase !== 'live') return
-    setPhase('reading')
+  /** Load the matched cards and decide. */
+  const decide = useCallback(async (matches: ArtMatch[]) => {
+    const cards = await loadCards(matches.map((m) => m.id))
+    return { cards, result: identify(matches, cards) }
+  }, [])
+
+  /** Single scan of a card picture: match it, then show the result. */
+  async function scanCard(card: HTMLCanvasElement) {
+    setPhase((p) => (p === 'no-camera' ? p : 'reading'))
     try {
-      const { text, candidates } = await readStrip(canvas, knownTotals, knownCodes, promoFallback)
-      const cards = await findCards(candidates)
-      setOutcome({ reads: candidates, text, cards })
-      if (cards.length === 1) setQuickCard(cards[0])
+      const matches = await matchCard(card, OPTIONS)
+      const { cards, result } = await decide(matches)
+      if (mode === 'rapid' && result.cards.length) catchCards(result.sure ? result.cards.slice(0, 1) : result.cards.slice(0, 4))
+      else {
+        setOutcome(result)
+        if (result.sure) setQuickCard(result.cards[0])
+        // Not sure: while they look, read the number. If it fits one of the pictures, that one goes first.
+        else if (ocrReady && result.cards.length > 1) {
+          void readStrip(bottomStrip(card), knownTotals, knownCodes, promoFallback, 3)
+            .then((read) => {
+              const byNumber = identify(matches, cards, read.candidates)
+              if (byNumber.sure) setOutcome((o) => (o === result ? { ...byNumber, sure: false, numberMatch: byNumber.cards[0].id } : o))
+            })
+            .catch(() => undefined)
+        }
+      }
+    } catch {
+      setOutcome({ cards: [], sure: false, failed: true })
     } finally {
-      setPhase('live')
+      setPhase((p) => (p === 'reading' ? 'live' : p))
     }
   }
 
@@ -205,53 +234,60 @@ export function Scan() {
     [setTray],
   )
 
-  // Rapid mode: keep reading. Only confident reads add anything, and the same card left in view
-  // isn't added again. Tapping the shutter forces a full read of the card in view.
+  // Rapid mode: keep looking. A card held in the frame goes in the tray: on its own when one
+  // picture is clearly closest, or to pick from later when it stays unsure. The same card left in
+  // view isn't added again. Tapping the shutter takes the card in view straight away.
   const forceRead = useRef(false)
-  const lastCatch = useRef<{ keys: Set<string>; ids: Set<string>; seen: number } | null>(null)
+  const lastCatch = useRef<{ ids: Set<string>; seen: number } | null>(null)
   useEffect(() => {
-    if (mode !== 'rapid' || phase !== 'live' || !ocrReady || reviewing || quickCard || outcome) return
+    if (mode !== 'rapid' || phase !== 'live' || !ready || reviewing || quickCard || outcome) return
     let running = true
+    let previous: string | null = null
+    let looks = 0
     ;(async () => {
       while (running) {
-        const canvas = cropStrip()
+        const canvas = cropGuide()
         if (!canvas) {
-          await new Promise((r) => setTimeout(r, 400))
+          await wait(400)
           continue
         }
         const forced = forceRead.current
         forceRead.current = false
-        const read = await readStrip(canvas, knownTotals, knownCodes, promoFallback)
-        if (!running) break
-        // Reads of one card vary a little (an extra guess here and there), so any overlap counts as the same card.
-        const keys = read.candidates.map((c) => `${c.setCode ?? ''}${c.number}/${c.total ?? ''}`)
-        const now = Date.now()
-        const same = lastCatch.current && keys.some((k) => lastCatch.current!.keys.has(k)) && now - lastCatch.current.seen < SAME_CARD_MS
-        if (same) {
-          // Still looking at the card we just caught.
-          lastCatch.current!.seen = now
-        } else if (read.confident || (forced && read.candidates.length)) {
-          const cards = await findCards(read.candidates)
-          if (!running) break
-          const last = lastCatch.current
-          if (last && now - last.seen < SAME_CARD_MS && cards.some((c) => last.ids.has(c.id))) {
-            // Read differently, but it's the card we just caught.
-            keys.forEach((k) => last.keys.add(k))
-            last.seen = now
-          } else if (cards.length) {
-            catchCards(cards)
-            lastCatch.current = { keys: new Set(keys), ids: new Set(cards.map((c) => c.id)), seen: now }
-          } else if (forced) setStatus("Couldn't find that one, try again")
-        } else if (forced) {
-          setStatus("Couldn't read the number, try again")
+        let matches: ArtMatch[]
+        try {
+          matches = await matchCard(canvas, OPTIONS, false)
+        } catch {
+          await wait(1000)
+          continue
         }
-        await new Promise((r) => setTimeout(r, 250))
+        if (!running) break
+        const [top, second] = matches
+        // Something card-like in the frame, and the same best match as last look.
+        const present = !!top && top.score >= PRESENT_SCORE
+        looks = present && top.id === previous ? looks + 1 : present ? 1 : 0
+        previous = present ? top.id : null
+        const clear = !!top && (!second || top.score - second.score >= SURE_MARGIN)
+        const now = Date.now()
+        const last = lastCatch.current
+        if (import.meta.env.DEV) console.debug('[rapid]', top?.id, top?.score.toFixed(3), second ? (top.score - second.score).toFixed(3) : '-', { present, looks, clear })
+        if (present && last && now - last.seen < SAME_CARD_MS && last.ids.has(top.id)) {
+          last.seen = now // Still the card we just caught.
+        } else if (forced || (clear && looks >= 2) || looks >= UNSURE_LOOKS) {
+          const result = (await decide(matches).catch(() => null))?.result
+          if (!running) break
+          if (result?.cards.length) {
+            catchCards(result.sure ? result.cards.slice(0, 1) : result.cards.slice(0, 4))
+            lastCatch.current = { ids: new Set(matches.slice(0, 4).map((m) => m.id)), seen: now }
+            looks = 0
+          } else if (forced) setStatus("Couldn't find that one, try again")
+        }
+        await wait(150)
       }
     })()
     return () => {
       running = false
     }
-  }, [mode, phase, ocrReady, reviewing, quickCard, outcome, cropStrip, knownTotals, knownCodes, promoFallback, findCards, catchCards])
+  }, [mode, phase, ready, reviewing, quickCard, outcome, cropGuide, decide, catchCards])
 
   // Status messages fade after a moment.
   useEffect(() => {
@@ -260,31 +296,19 @@ export function Scan() {
     return () => clearTimeout(t)
   }, [status])
 
-  /** Fallback: read a photo. The number is in the bottom strip of the card, so read the bottom fifth. */
+  /** Fallback: a photo of the card, taken with the phone's own camera. */
   async function scanPhoto(file: File) {
-    setPhase((p) => (p === 'no-camera' ? p : 'reading'))
-    try {
-      const bitmap = await createImageBitmap(file)
-      const sh = Math.round(bitmap.height * 0.2)
-      const canvas = document.createElement('canvas')
-      canvas.width = bitmap.width
-      canvas.height = sh
-      canvas.getContext('2d')!.drawImage(bitmap, 0, bitmap.height - sh, bitmap.width, sh, 0, 0, bitmap.width, sh)
-      const { text, candidates } = await readStrip(canvas, knownTotals, knownCodes, promoFallback)
-      const cards = await findCards(candidates)
-      if (mode === 'rapid' && cards.length) catchCards(cards)
-      else {
-        setOutcome({ reads: candidates, text, cards })
-        if (cards.length === 1) setQuickCard(cards[0])
-      }
-    } finally {
-      setPhase((p) => (p === 'reading' ? 'live' : p))
-    }
+    const bitmap = await createImageBitmap(file)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+    await scanCard(canvas)
   }
 
   const busy = phase === 'reading'
   const rapid = mode === 'rapid'
-  const caption = busy ? 'Reading…' : rapid ? 'Hold each card here, it adds itself' : 'Line up the number here'
+  const caption = busy ? 'Looking…' : rapid ? 'Hold each card in the frame, it adds itself' : 'Fit the card in the frame'
 
   return (
     <div className="fixed inset-0 z-30 overflow-hidden bg-black">
@@ -293,15 +317,15 @@ export function Scan() {
       {/* Card-shaped guide; the huge shadow darkens everything outside it. Rapid mode keeps room for the tray so the guide never jumps. */}
       <div className="absolute inset-0 flex items-center justify-center p-6" style={{ paddingBottom: `calc(${rapid ? 230 : 150}px + env(safe-area-inset-bottom))`, paddingTop: 'calc(110px + env(safe-area-inset-top))' }}>
         <div
-          className="relative aspect-[63/88] max-h-full w-full max-w-[420px] rounded-[18px]"
-          style={{ boxShadow: '0 0 0 9999px rgba(11,9,18,.72), 0 0 0 2px rgba(167,139,250,.9), 0 0 30px rgba(139,92,246,.6)' }}
+          ref={guideRef}
+          className="relative aspect-[63/88] max-h-full w-full max-w-[420px] rounded-[18px] transition-shadow"
+          style={{
+            boxShadow: busy
+              ? '0 0 0 9999px rgba(11,9,18,.72), 0 0 0 3px #6ee7b7, 0 0 34px rgba(52,211,153,.6)'
+              : '0 0 0 9999px rgba(11,9,18,.72), 0 0 0 2px rgba(167,139,250,.9), 0 0 30px rgba(139,92,246,.6)',
+          }}
         >
-          <div
-            ref={stripRef}
-            className="absolute inset-x-2 bottom-1.5 h-[9%] rounded-[10px] border-2 border-dashed"
-            style={{ borderColor: busy ? '#6ee7b7' : 'rgba(250,204,21,.9)', boxShadow: busy ? '0 0 20px rgba(52,211,153,.6)' : '0 0 16px rgba(250,204,21,.35)' }}
-          />
-          <div className="absolute inset-x-0 bottom-[calc(9%+16px)] px-3 text-center text-[13px] font-semibold text-[#fde047]" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
+          <div className="absolute inset-x-0 bottom-3 px-3 text-center text-[13px] font-semibold text-[#fde047]" style={{ textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>
             {caption}
           </div>
         </div>
@@ -333,7 +357,7 @@ export function Scan() {
           className={`rounded-full px-3.5 py-1.5 text-[12px] font-medium backdrop-blur transition-colors ${status ? 'bg-[rgba(52,211,153,.25)] text-up' : 'bg-black/55 text-white/80'}`}
           role="status"
         >
-          {ocrError ? "Scanner couldn't load" : !ocrReady ? 'Getting the scanner ready…' : (status ?? (rapid ? 'Looking for a card…' : 'Ready'))}
+          {loadError ? "Scanner couldn't load. Check your connection." : !ready ? 'Getting the scanner ready (the first time takes a minute)…' : (status ?? (rapid ? 'Looking for a card…' : 'Ready'))}
         </span>
       </div>
 
@@ -343,7 +367,7 @@ export function Scan() {
         {phase === 'no-camera' ? (
           <div className="flex flex-col items-center gap-3 text-center">
             <p className="max-w-[300px] text-[14px] text-white/80">The camera isn't available here. Allow camera access in Settings, or use a photo of the card.</p>
-            <button type="button" className="cta" onClick={() => fileRef.current?.click()}>
+            <button type="button" className="cta" disabled={!ready} onClick={() => fileRef.current?.click()}>
               <IconCamera size={18} /> Use a photo instead
             </button>
           </div>
@@ -351,21 +375,24 @@ export function Scan() {
           <>
             <button
               type="button"
-              aria-label={rapid ? 'Read this card now' : 'Scan card'}
-              disabled={phase !== 'live' || !ocrReady}
+              aria-label={rapid ? 'Add the card in the frame now' : 'Scan card'}
+              disabled={phase !== 'live' || !ready}
               onClick={() => {
                 unlockAudio()
                 if (rapid) {
                   forceRead.current = true
-                  setStatus('Reading this one…')
-                } else void scanFrame()
+                  setStatus('Looking at this one…')
+                } else {
+                  const card = cropGuide()
+                  if (card) void scanCard(card)
+                }
               }}
               className={`grid place-items-center rounded-full transition-transform active:scale-95 disabled:opacity-50 ${rapid ? 'h-[60px] w-[60px]' : 'h-[76px] w-[76px]'}`}
               style={{ background: 'linear-gradient(135deg,#fef3c7,#f9a8d4 50%,#a78bfa)', boxShadow: '0 0 0 4px rgba(255,255,255,.15), 0 0 30px rgba(244,114,182,.5)' }}
             >
               {busy ? <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#1b1030]/30 border-t-[#1b1030]" /> : <IconCamera size={rapid ? 24 : 30} className="text-[#1b1030]" />}
             </button>
-            <button type="button" className="text-[13px] font-semibold text-white/70 underline underline-offset-4" onClick={() => fileRef.current?.click()}>
+            <button type="button" className="text-[13px] font-semibold text-white/70 underline underline-offset-4 disabled:opacity-50" disabled={!ready} onClick={() => fileRef.current?.click()}>
               Use a photo instead
             </button>
           </>
@@ -395,10 +422,11 @@ export function Scan() {
       {quickCard && (
         <QuickAddSheet
           card={quickCard}
+          onAdded={() => setOutcome(null)}
           onClose={() => {
             setQuickCard(null)
-            // A single match goes straight to the drawer; closing it returns to the camera.
-            if (outcome?.cards.length === 1) setOutcome(null)
+            // Not added: back to the other close matches, if there were any.
+            if ((outcome?.cards.length ?? 0) <= 1) setOutcome(null)
           }}
         />
       )}
@@ -419,53 +447,54 @@ export function Scan() {
 }
 
 function ScanResults({ outcome, onPick, onClose, onSearch }: { outcome: Outcome; onPick: (c: Card) => void; onClose: () => void; onSearch: (term: string) => void }) {
-  const r = outcome.reads[0]
-  const label = (c: CardText) => `${c.setCode ? `${c.setCode} ` : ''}${c.number}${c.total ? `/${c.total}` : ''}`
-  const readAs = outcome.reads.map(label).join(' or ')
-  const [term, setTerm] = useState(r ? `${r.number}${r.total ? `/${r.total}` : ''}` : '')
+  const [term, setTerm] = useState('')
+  const found = outcome.cards.length > 0
+  const title = outcome.failed ? "Couldn't scan that" : !found ? 'No match found' : outcome.sure ? 'Not this one?' : 'Which one is it?'
+  const sub = outcome.failed ? 'Check your connection and try again' : !found ? 'Fit the whole card in the frame, in good light. Shiny cards scan best out of their sleeve.' : 'Tap your card. These look closest.'
 
   return (
     <Modal onClose={onClose} title="Scan results">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] p-4 pl-5">
         <div className="min-w-0">
-          <h2 className="text-[18px] font-bold tracking-tight">{outcome.cards.length ? `${outcome.cards.length} ${outcome.cards.length === 1 ? 'card matches' : 'cards match'}` : r ? 'No card found' : "Couldn't read the number"}</h2>
-          <div className="mono truncate text-[11.5px] text-mute">{r ? `Read as ${readAs}` : 'Hold it closer and steadier, in good light'}</div>
+          <h2 className="text-[18px] font-bold tracking-tight">{title}</h2>
+          <div className="text-[12.5px] text-mute">{sub}</div>
         </div>
-        <button type="button" aria-label="Scan again" className="chip-btn flex-none" onClick={onClose}>
+        <button type="button" className="chip-btn flex-none" onClick={onClose}>
           Scan again
         </button>
       </div>
-      <div className="flex flex-col gap-2 overflow-y-auto p-4">
-        {outcome.cards.map((c) => (
-          <button key={c.id} type="button" onClick={() => onPick(c)} className="surface flex items-center gap-3 !rounded-[18px] p-2.5 pr-4 text-left hover:border-accent">
-            <Thumb card={c} width={48} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-semibold">{c.name}</div>
-              <div className="truncate text-[12px] text-mute">
-                {c.set.name} · {c.number}
-                {c.set.printedTotal ? `/${c.set.printedTotal}` : ''}
-              </div>
-            </div>
-            <IconChevronRight size={18} className="text-mute" />
-          </button>
-        ))}
-        {outcome.cards.length === 0 && (
-          <form
-            className="flex flex-col gap-2.5"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (term.trim()) onSearch(term.trim())
-            }}
-          >
-            <span className="eyebrow">Or type what's printed at the bottom</span>
-            <div className="flex gap-2">
-              <input className="field" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="128/142, or MEP 29 for promos" />
-              <button type="submit" className="btn flex-none">
-                Search
+      <div className="flex flex-col gap-4 overflow-y-auto p-4">
+        {found && (
+          <div className="grid grid-cols-3 gap-x-3 gap-y-3.5">
+            {outcome.cards.map((c) => (
+              <button key={c.id} type="button" onClick={() => onPick(c)} className="flex min-w-0 flex-col gap-1.5 text-left transition-transform active:scale-95" aria-label={`${c.name}, ${c.set.name} ${c.number}`}>
+                <div className="relative">
+                  <CardImage card={c} rounded={10} style={c.id === outcome.numberMatch ? { boxShadow: '0 0 0 2px #6ee7b7, 0 0 18px rgba(52,211,153,.5)' } : undefined} />
+                  {c.id === outcome.numberMatch && <span className="absolute inset-x-1 bottom-1 rounded-full bg-[#064e3b]/90 py-0.5 text-center text-[10px] font-bold text-up">Number matches</span>}
+                </div>
+                <span className="truncate px-0.5 text-[12.5px] font-semibold">{c.name}</span>
+                <span className="mono -mt-1 truncate px-0.5 text-[10.5px] text-mute">
+                  {c.set.name} · {c.number}
+                </span>
               </button>
-            </div>
-          </form>
+            ))}
+          </div>
         )}
+        <form
+          className="flex flex-col gap-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (term.trim()) onSearch(term.trim())
+          }}
+        >
+          <span className="eyebrow">{found ? 'None of these? Search for it' : 'Or search for it'}</span>
+          <div className="flex gap-2">
+            <input className="field" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Name, or the number like 128/142" />
+            <button type="submit" className="btn flex-none">
+              Search
+            </button>
+          </div>
+        </form>
       </div>
     </Modal>
   )

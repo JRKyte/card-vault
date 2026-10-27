@@ -109,11 +109,6 @@ function otsu(grey: Uint8ClampedArray): number {
 export interface StripRead {
   text: string
   candidates: CardText[]
-  /**
-   * A clean read, a promo code, or several attempts agreeing. Rapid scan only acts on these, so
-   * an empty frame or a blurry card never adds anything by itself.
-   */
-  confident: boolean
 }
 
 /**
@@ -127,13 +122,15 @@ export async function readStrip(
   knownCodes: ReadonlySet<string>,
   /** Newest promo set codes, tried with a bare number when no code could be read. */
   promoFallback: string[] = [],
+  /** Stop after this many attempts (about a second each); the picture match doesn't need all six. */
+  attempts = ATTEMPTS.length,
 ): Promise<StripRead> {
   const worker = await warmUpOcr()
   let lastText = ''
   const leftReads: string[] = []
   // How many attempts each pieced-together reading turned up in ("1287142" → 128/142).
   const guessed = new Map<string, { candidate: CardText; count: number; order: number }>()
-  for (const [region, pass] of ATTEMPTS) {
+  for (const [region, pass] of ATTEMPTS.slice(0, attempts)) {
     await worker.setParameters({
       tessedit_char_whitelist: pass.whitelist ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/ ' : '',
       tessedit_pageseg_mode: '11' as PSM, // PSM.SPARSE_TEXT: scattered bits of small print
@@ -143,7 +140,7 @@ export async function readStrip(
     if (region === 'left') leftReads.push(lastText)
     const strong = strongCandidates(lastText, knownTotals, knownCodes)
     if (import.meta.env.DEV) console.debug('[scan]', region, JSON.stringify(pass), JSON.stringify(lastText), strong)
-    if (strong.length) return { text: lastText, candidates: strong, confident: true }
+    if (strong.length) return { text: lastText, candidates: strong }
     for (const candidate of cardCandidates(lastText, knownTotals, knownCodes)) {
       const key = `${candidate.number}/${candidate.total}`
       const seen = guessed.get(key)
@@ -154,13 +151,13 @@ export async function readStrip(
   // No confident read. Best next: a pieced-together number/total that several attempts agree on.
   const ranked = [...guessed.values()].sort((a, b) => b.count - a.count || a.order - b.order)
   const agreed = ranked.filter((g) => g.count >= 2).map((g) => g.candidate)
-  if (agreed.length) return { text: lastText, candidates: agreed.slice(0, 3), confident: true }
+  if (agreed.length) return { text: lastText, candidates: agreed.slice(0, 3) }
 
   // Then a bare number the left-half reads agree on: most likely a promo whose white-on-dark set
   // code didn't read, so try it in the newest promo sets.
   const steady = steadyNumber(leftReads)
-  if (steady && promoFallback.length) return { text: lastText, candidates: promoFallback.map((setCode) => ({ number: steady, total: null, setCode })), confident: false }
+  if (steady && promoFallback.length) return { text: lastText, candidates: promoFallback.map((setCode) => ({ number: steady, total: null, setCode })) }
 
   // Last resort: one-off guesses.
-  return { text: lastText, candidates: ranked.slice(0, 3).map((g) => g.candidate), confident: false }
+  return { text: lastText, candidates: ranked.slice(0, 3).map((g) => g.candidate) }
 }

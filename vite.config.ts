@@ -79,6 +79,23 @@ export default defineConfig({
             options: { cacheName: 'ocr', expiration: { maxEntries: 20 }, cacheableResponse: { statuses: [0, 200] } },
           },
           {
+            // The picture matcher's engine (bundled .wasm). The model itself is cached by transformers.js.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.endsWith('.wasm'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'artmatch-engine', expiration: { maxEntries: 20 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
+            // Card fingerprints: the list is checked each time; vector files have a hash in their name.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes('/fingerprints/') && url.pathname.endsWith('.bin'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'fingerprints', expiration: { maxEntries: 4 }, cacheableResponse: { statuses: [200] } },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.endsWith('/fingerprints/index.json'),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'fingerprints-index', networkTimeoutSeconds: 5, expiration: { maxEntries: 2 }, cacheableResponse: { statuses: [200] } },
+          },
+          {
             urlPattern: ({ url }) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com',
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'fonts', cacheableResponse: { statuses: [0, 200] } },

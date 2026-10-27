@@ -1,6 +1,5 @@
 // Card search across both sources: pokemontcg.io for most sets, TCGdex for the sets it lacks.
 
-import { scanQuery, type CardText } from './scan'
 import { sortCards } from './sets'
 import { searchCards, searchQueryFor, type Card, type TcgSet } from './tcg'
 import { isTcgdexId, tcgdexCardByNumber, tcgdexSearchByName } from './tcgdexCards'
@@ -61,13 +60,4 @@ export async function searchEverything(term: string, sets: TcgSet[]): Promise<{ 
     byName && extraIds.length ? tcgdexSearchByName(term.trim(), extraIds).catch(() => [] as Card[]) : Promise.resolve([] as Card[]),
   ])
   return { data: sortCards([...extra, ...ptcg.data]), totalCount: ptcg.totalCount + extra.length }
-}
-
-/** Cards for a scanned reading: by set code when known (either source), else by number/total. */
-export async function findByNumber(read: CardText, sets: TcgSet[]): Promise<Card[]> {
-  const byCode = setsByCode(sets)
-  const set = read.setCode ? byCode.get(read.setCode) : undefined
-  if (set && isTcgdexId(set.id)) return byCodeAndNumber(set, read.number)
-  const query = scanQuery(read, (code) => byCode.get(code.toUpperCase())?.id ?? null)
-  return (await searchCards(query, { pageSize: 30 })).data
 }

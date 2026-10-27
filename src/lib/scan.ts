@@ -101,18 +101,6 @@ function findSetCode(before: string): string | null {
   return codes.at(-1) ?? null
 }
 
-/**
- * The pokemontcg.io query for what was read. A set code narrows it to one set; otherwise the
- * printed total does most of the work.
- */
-export function scanQuery(read: CardText, setIdForCode: (code: string) => string | null): string {
-  const setId = read.setCode ? setIdForCode(read.setCode) : null
-  // Gallery cards live in a sub-set (swsh11 → swsh11tg), so match the set id as a prefix.
-  if (setId && /^[A-Z]/.test(read.number)) return `set.id:${setId}* number:${read.number}`
-  if (setId) return `set.id:${setId} number:${read.number}`
-  return read.total ? `number:${read.number} set.printedTotal:${read.total}` : `number:${read.number}`
-}
-
 /** Promo sets ("MEP Black Star Promos", "Scarlet & Violet Black Star Promos") print bare numbers. */
 export const isPromoSet = (set: { name: string }) => /promo/i.test(set.name)
 

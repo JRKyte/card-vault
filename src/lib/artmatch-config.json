@@ -1,0 +1,8 @@
+{
+  "models": [
+    { "id": "onnx-community/dinov2-small", "dtype": "q8" },
+    { "id": "Xenova/mobileclip_s0", "dtype": "fp16" }
+  ],
+  "size": 224,
+  "insets": [0, 0.03, 0.06]
+}
