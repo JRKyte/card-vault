@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Thumb } from '../components/cards'
-import { IconPlus } from '../components/icons'
+import { IconChevronRight, IconPlus } from '../components/icons'
 import { ErrorMessage, Message, PageHeader, Screen, Segmented, Skeleton } from '../components/ui'
 import { setColor } from '../data/set-colors'
 import { today } from '../lib/cards'
@@ -232,7 +232,12 @@ function StatTiles({ items, cards, cur, total }: { items: CollectionItem[]; card
 
   return (
     <div className="grid grid-cols-2 gap-2.5 wide:grid-cols-4">
-      <SmallTile label="Priciest card" value={s.priciest ? fmt(s.priciest.value) : '—'} sub={s.priciest?.card.name ?? 'No prices yet'} />
+      <SmallTile
+        label="Priciest card"
+        value={s.priciest ? fmt(s.priciest.value) : '—'}
+        sub={s.priciest?.card.name ?? 'No prices yet'}
+        to={s.priciest ? `/card/${s.priciest.card.id}` : undefined}
+      />
       <SmallTile label="Average per card" value={s.average ? fmt(s.average) : '—'} sub="Across every copy" />
       <SmallTile label="Holos" value={s.holo ? fmt(s.holo) : '—'} sub={total ? `${Math.round((s.holo / total) * 100)}% of total` : 'Holo and reverse copies'} />
       <SmallTile
@@ -244,13 +249,23 @@ function StatTiles({ items, cards, cur, total }: { items: CollectionItem[]; card
   )
 }
 
-function SmallTile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {
-  return (
-    <div className="tile flex min-w-0 flex-col gap-2 p-3.5">
-      <span className="text-[12px] font-medium text-mute">{label}</span>
+/** With `to`, the whole tile is a link and shows an arrow in the corner. */
+function SmallTile({ label, value, sub, to }: { label: string; value: string; sub: React.ReactNode; to?: string }) {
+  const body = (
+    <>
+      <span className="flex items-center justify-between gap-2 text-[12px] font-medium text-mute">
+        {label}
+        {to && <IconChevronRight size={16} className="-my-1 flex-none text-accent-2" />}
+      </span>
       <span className="truncate text-[24px] leading-none font-bold tracking-[-.03em]">{value}</span>
       <span className="truncate text-[11.5px] text-mute">{sub}</span>
-    </div>
+    </>
+  )
+  if (!to) return <div className="tile flex min-w-0 flex-col gap-2 p-3.5">{body}</div>
+  return (
+    <Link to={to} state={{ from: { name: 'Value', href: '/value' } }} className="tile flex min-w-0 flex-col gap-2 p-3.5 transition-colors hover:border-accent active:scale-[0.98]">
+      {body}
+    </Link>
   )
 }
 
