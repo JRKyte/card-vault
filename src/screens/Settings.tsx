@@ -181,7 +181,7 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
   )
 }
 
-function AvatarPicker({ profile, set }: { profile: Profile; set: (p: Partial<Profile>) => void }) {
+export function AvatarPicker({ profile, set, fromCollection = true }: { profile: Profile; set: (p: Partial<Profile>) => void; fromCollection?: boolean }) {
   const [mine, setMine] = useState(false)
   // Resolve any option without a pinned card id: newest card with that exact name.
   const resolved = useQuery({
@@ -220,9 +220,11 @@ function AvatarPicker({ profile, set }: { profile: Profile; set: (p: Partial<Pro
           )
         })}
       </div>
-      <button type="button" className="chip-btn self-start" onClick={() => setMine(true)}>
-        Use one of my cards
-      </button>
+      {fromCollection && (
+        <button type="button" className="chip-btn self-start" onClick={() => setMine(true)}>
+          Use one of my cards
+        </button>
+      )}
       {mine && (
         <MyCardPicker
           onClose={() => setMine(false)}

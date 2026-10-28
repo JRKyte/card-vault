@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 import { Nav } from './components/Nav'
-import { keys, useUser } from './lib/queries'
+import { keys, useProfile, useUser } from './lib/queries'
 import { useDailySnapshot } from './lib/snapshot'
 import { store } from './lib/store'
 import { AddCard } from './screens/AddCard'
@@ -16,6 +16,7 @@ import { FriendSwaps } from './screens/FriendSwaps'
 import { Sets } from './screens/Sets'
 import { Swaps } from './screens/Swaps'
 import { Settings } from './screens/Settings'
+import { Setup } from './screens/Setup'
 
 // The chart library is heavy; only load it when the Value screen opens.
 const Value = lazy(() => import('./screens/Value').then((m) => ({ default: m.Value })))
@@ -37,6 +38,14 @@ export function App() {
   if (!user.data) {
     return <Login />
   }
+  return <ProfileGate />
+}
+
+/** New accounts have no profile yet: ask for a name, picture and currency before anything else. */
+function ProfileGate() {
+  const profile = useProfile()
+  if (profile.isLoading) return null
+  if (profile.data === null && !profile.error) return <Setup />
   return <SignedIn />
 }
 

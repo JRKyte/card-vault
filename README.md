@@ -23,12 +23,12 @@ npm run build     # type-check and build to dist/
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor**, paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and press **Run**.
-3. Turn off sign-ups and email confirmations, since you'll create every account yourself:
-   - **Authentication → Sign In / Providers → Email**: turn off **Confirm email**.
-   - **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**.
-4. Create the family account: **Authentication → Users → Add user → Create new user**. Enter the email and password, and tick **Auto Confirm User**.
+3. Choose who can make accounts, in **Authentication → Sign In / Providers**:
+   - **Anyone can sign up** (the app's **Create an account** link): turn on **Allow new users to sign up**. Under **Email**, leave **Confirm email** on so each new account has to open a link sent to their inbox before signing in. Then set **Authentication → URL Configuration → Site URL** to the app's address (`https://<your-username>.github.io/<repo-name>/`), which is where that link goes back to. Supabase's built-in email sender only sends a few emails an hour; for more, add your own SMTP server under **Authentication → Emails**.
+   - **Only accounts you create**: turn off **Allow new users to sign up** and **Confirm email**. The sign-up form then says new accounts can't be made right now.
+4. Create the family account: sign up in the app, or **Authentication → Users → Add user → Create new user**: enter the email and password, and tick **Auto Confirm User**.
 
-   To let someone else use the app (a friend, a sibling), create another user the same way. Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. Send them the app link and the email and password you set. Once signed in, anyone can change their own name and password from Settings (tap the avatar on the home screen); changing the password asks for the current one first. To remove someone later, delete their user and all their data goes with it.
+   Each account gets its own separate collection, sets, value history and avatar; nobody can see anyone else's cards. The first time someone signs in, the app asks for their name, a Pokémon picture and which currency to show prices in. They can change all of these, and their password, from Settings later (tap the avatar on the home screen); changing the password asks for the current one first. To remove someone, delete their user and all their data goes with it.
 5. Get the two values the app needs:
    - **Publishable key**: **Project Settings → API Keys**. It starts with `sb_publishable_`. (Use the publishable key, never a secret key.)
    - **Project URL**: it's `https://<project-ref>.supabase.co`. The project ref is the random string in your dashboard's address bar (`supabase.com/dashboard/project/<project-ref>`). You can also copy the full URL from the **Connect** button at the top of the dashboard, or from **Project Settings → Data API**.
@@ -72,7 +72,7 @@ The app icon is `public/icon.svg`. After editing it, regenerate the PNGs with `n
 
 The **Swaps** tab lets two collectors see which cards they could swap.
 
-**Setup (once):** in Supabase, open **SQL Editor**, paste [`supabase/migrations/0002_friends.sql`](supabase/migrations/0002_friends.sql) and press **Run**. Then create an account for the friend the same way as the family account (Authentication → Users → Add user, tick Auto Confirm User).
+**Setup (once):** in Supabase, open **SQL Editor**, paste [`supabase/migrations/0002_friends.sql`](supabase/migrations/0002_friends.sql) and press **Run**. The friend needs an account too: they can sign up in the app, or you can create one for them the same way as the family account.
 
 **How it works**
 - Add a friend by typing their exact email. They see a request on their Swaps tab and accept or decline. Nothing is shared until they accept, and either of you can remove the friendship.
@@ -80,7 +80,7 @@ The **Swaps** tab lets two collectors see which cards they could swap.
 - A **spare** is a card you have 2 or more of, counting every version. A friend's page lists their spares you don't own ("Alex can give you") and your spares they don't own ("You can give Alex"). The badge counts one-for-one swaps: the shorter of the two lists. Cards that would help a set you're collecting are tagged and listed first.
 - After swapping, add the new card with the + on its tile.
 
-**Privacy notes:** nobody can list or search users; the lookup only answers for an exact email. Someone signed in could still try addresses to see if an account exists, so only people you've given accounts to are discoverable. The database functions that do this check who's calling (`request_friend`, `respond_friend`, `friend_list`, `friend_cards`), and signed-out callers are refused.
+**Privacy notes:** nobody can list or search users; the lookup only answers for an exact email. Someone signed in could still try addresses to see if an account exists. The database functions that do this check who's calling (`request_friend`, `respond_friend`, `friend_list`, `friend_cards`), and signed-out callers are refused.
 
 ## Scanning cards
 

@@ -10,7 +10,7 @@ import { alpha } from '../lib/color'
 import { clearDraft, loadDraft, saveDraft, type Draft } from '../lib/draft'
 import { useCurrencyMode } from '../lib/money'
 import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
-import { useCards, useCollection, useCreateCustomSet, useCustomMembership, useCustomSets, useDeleteCustomSet, useUpdateCustomSet } from '../lib/queries'
+import { useCards, useCollection, useCreateCustomSet, useCustomMembership, useCustomSetMembership, useCustomSets, useDeleteCustomSet, useUpdateCustomSet } from '../lib/queries'
 import type { Exclusions } from '../lib/sets'
 import type { CustomSet } from '../lib/store'
 import type { Card } from '../lib/tcg'
@@ -66,6 +66,7 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
   const save = useUpdateCustomSet()
   const del = useDeleteCustomSet()
   const membership = useCustomMembership()
+  const toggle = useCustomSetMembership()
 
   // Keep the new-set form alive across the trip to the search screen.
   useEffect(() => {
@@ -179,7 +180,13 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
         {d.kind === 'smart' ? (
           <SmartPanel d={d} update={update} color={d.color} preview={preview} hasQuery={!!query} />
         ) : editId ? (
-          <PickedEditNote count={membership.members.get(editId)?.length ?? 0} onChoose={() => navigate(`/add?to=${editId}`)} />
+          // Removing here saves straight away, like adding on the search screen does.
+          <PickPanel
+            cards={membership.members.get(editId) ?? []}
+            onRemove={(id) => toggle.mutate({ setId: editId, cardId: id, on: false })}
+            onChoose={() => navigate(`/add?to=${editId}`)}
+            editing
+          />
         ) : (
           <PickPanel cards={d.cards} onRemove={(id) => update({ cards: d.cards.filter((c) => c !== id) })} onChoose={() => navigate('/add?pick=draft')} />
         )}
@@ -344,14 +351,20 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
   )
 }
 
-function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (id: string) => void; onChoose: () => void }) {
+function PickPanel({ cards, onRemove, onChoose, editing }: { cards: string[]; onRemove: (id: string) => void; onChoose: () => void; editing?: boolean }) {
   const data = useCards(cards)
   return (
     <div className="surface flex flex-col gap-4 p-5">
-      <p className="text-[14px] text-mute">Search for cards and add them to this set. Choosing a card here doesn't mark it as owned.</p>
-      <button type="button" className="btn self-start" onClick={onChoose}>
-        Choose cards
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-[14px] text-mute">
+          {editing
+            ? `This set has ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}. Tap the cross on a card to take it out of the set.`
+            : "Search for cards and add them to this set. Choosing a card here doesn't mark it as owned."}
+        </p>
+        <button type="button" className="btn" onClick={onChoose}>
+          {editing ? 'Add cards' : 'Choose cards'}
+        </button>
+      </div>
       {cards.length > 0 && (
         <div className="grid grid-cols-4 gap-3 min-[600px]:grid-cols-6 wide:grid-cols-8">
           {cards.map((id) => {
@@ -362,7 +375,7 @@ function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (
                 <button
                   type="button"
                   onClick={() => onRemove(id)}
-                  aria-label="Remove"
+                  aria-label={c ? `Remove ${c.name} from this set` : 'Remove from this set'}
                   className="absolute -top-2 -right-2 grid h-8 w-8 place-items-center rounded-full bg-down text-white"
                   style={{ boxShadow: '0 0 12px rgba(248,113,113,.6)' }}
                 >
@@ -373,17 +386,6 @@ function PickPanel({ cards, onRemove, onChoose }: { cards: string[]; onRemove: (
           })}
         </div>
       )}
-    </div>
-  )
-}
-
-function PickedEditNote({ count, onChoose }: { count: number; onChoose: () => void }) {
-  return (
-    <div className="surface flex flex-wrap items-center justify-between gap-4 p-5">
-      <p className="text-[14px] text-mute">This set has {count} cards. Add more here, or remove them from the set page.</p>
-      <button type="button" className="btn" onClick={onChoose}>
-        Add cards
-      </button>
     </div>
   )
 }

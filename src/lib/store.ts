@@ -75,6 +75,8 @@ export interface Store {
   getUser(): Promise<{ id: string; email: string } | null>
   onAuthChange(fn: () => void): () => void
   signIn(email: string, password: string): Promise<void>
+  /** Make a new account. `confirm` is true when Supabase wants the email confirmed before signing in. */
+  signUp(email: string, password: string): Promise<{ confirm: boolean }>
   signOut(): Promise<void>
   /** Checks the current password, then sets a new one. */
   changePassword(current: string, next: string): Promise<void>
@@ -139,6 +141,8 @@ class SupabaseStore implements Store {
 
   async getUser() {
     const { data } = await this.sb.auth.getSession()
+    // A confirmation link lands with ?code=…; the client has used it by now, so tidy the address.
+    if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash)
     const u = data.session?.user
     return u ? { id: u.id, email: u.email ?? '' } : null
   }
@@ -149,6 +153,14 @@ class SupabaseStore implements Store {
   async signIn(email: string, password: string) {
     const { error } = await this.sb.auth.signInWithPassword({ email, password })
     if (error) throw new Error(error.message)
+  }
+  async signUp(email: string, password: string) {
+    const { data, error } = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + import.meta.env.BASE_URL } })
+    if (error) throw new Error(error.message)
+    // With "Confirm email" on, there's no session until the link in the email is opened. Supabase
+    // also hides whether the email is already taken: that comes back as a user with no identities.
+    if (data.user && !data.user.identities?.length) throw new Error('already registered')
+    return { confirm: !data.session }
   }
   async signOut() {
     await this.sb.auth.signOut()
@@ -368,6 +380,10 @@ class LocalStore implements Store {
     this.write((d) => (d.signedIn = true))
     this.listeners.forEach((f) => f())
   }
+  async signUp() {
+    await this.signIn()
+    return { confirm: false }
+  }
   async signOut() {
     this.write((d) => (d.signedIn = false))
     this.listeners.forEach((f) => f())
@@ -548,5 +564,5 @@ const publicKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.
 
 export const store: Store =
   url && publicKey
-    ? new SupabaseStore(createClient(url, publicKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'card-vault-auth' } }))
+    ? new SupabaseStore(createClient(url, publicKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'card-vault-auth', flowType: 'pkce' } }))
     : new LocalStore()

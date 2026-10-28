@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Thumb } from '../components/cards'
-import { IconCamera, IconCheck, IconChevronRight, IconPlus, IconSearch, IconX } from '../components/icons'
+import { IconCamera, IconChevronRight, IconPlus, IconSearch, IconX } from '../components/icons'
 import { QuickAddSheet } from '../components/QuickAdd'
 import { BackPill, ErrorMessage, Message, PageHeader, Screen, Segmented, Skeleton, StatusPill, TopRow } from '../components/ui'
 import { draftCards, loadDraft, setDraftCards } from '../lib/draft'
@@ -244,13 +244,20 @@ function ResultRow({ card, onClick, trailing, onQuickAdd }: { card: Card; onClic
 }
 
 function PickButton({ picked, name }: { picked: boolean; name: string }) {
+  // Already in the set: offer to take it out again.
+  if (picked) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[rgba(248,113,113,.14)] px-3 py-2 text-[13px] font-semibold text-down">
+        <IconX size={16} />
+        Remove
+      </span>
+    )
+  }
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold ${picked ? 'bg-[rgba(52,211,153,.14)] text-up' : 'bg-sel text-white'}`}
-      style={picked ? undefined : { boxShadow: 'var(--sel-shadow)' }}
-    >
-      {picked ? <IconCheck size={16} /> : <IconPlus size={16} />}
-      <span className="hidden sm:inline">{picked ? 'Added' : `Add to ${name}`}</span>
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sel px-3 py-2 text-[13px] font-semibold text-white" style={{ boxShadow: 'var(--sel-shadow)' }}>
+      <IconPlus size={16} />
+      <span className="sm:hidden">Add</span>
+      <span className="hidden sm:inline">Add to {name}</span>
     </span>
   )
 }

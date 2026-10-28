@@ -12,19 +12,37 @@ export function Login() {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [signingUp, setSigningUp] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
+
+  const short = signingUp && password.length > 0 && password.length < MIN_PASSWORD
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (short) return
     setBusy(true)
     setError(null)
     try {
-      await store.signIn(email.trim(), password)
+      if (signingUp) {
+        const { confirm } = await store.signUp(email.trim(), password)
+        if (confirm) {
+          setSentTo(email.trim())
+          return
+        }
+      } else {
+        await store.signIn(email.trim(), password)
+      }
       await qc.invalidateQueries({ queryKey: keys.user })
     } catch (err) {
-      setError(err instanceof Error && /invalid/i.test(err.message) ? "That email or password didn't work." : 'Could not sign in. Check your connection and try again.')
+      setError(signingUp ? signUpError(err) : signInError(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  function switchMode() {
+    setSigningUp((v) => !v)
+    setError(null)
   }
 
   return (
@@ -43,8 +61,27 @@ export function Login() {
               Start on this device
             </button>
           </>
+        ) : sentTo ? (
+          <div className="flex flex-col gap-4">
+            <h2 className="text-[22px] font-bold tracking-[-.03em]">Check your email</h2>
+            <p className="text-[15px] text-mute">
+              We sent a link to <span className="font-semibold text-ink">{sentTo}</span>. Open it to confirm your account, then come back here and sign in.
+            </p>
+            <button
+              type="button"
+              className="cta w-full"
+              onClick={() => {
+                setSentTo(null)
+                setSigningUp(false)
+                setPassword('')
+              }}
+            >
+              Back to sign in
+            </button>
+          </div>
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
+            {signingUp && <h2 className="-mt-2 text-[22px] font-bold tracking-[-.03em]">Create an account</h2>}
             <label className="flex flex-col gap-2">
               <span className="eyebrow">Email</span>
               <input className="field" type="email" autoComplete="username" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -52,7 +89,7 @@ export function Login() {
             <label className="flex flex-col gap-2">
               <span className="eyebrow">Password</span>
               <div className="relative">
-                <input className="field pr-16" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <input className="field pr-16" type={show ? 'text' : 'password'} autoComplete={signingUp ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} required />
                 <button
                   type="button"
                   className="absolute top-1/2 right-1 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-mute"
@@ -62,18 +99,44 @@ export function Login() {
                   {show ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
+              {signingUp && <span className={`text-[13px] ${short ? 'font-semibold text-down' : 'text-mute'}`}>At least {MIN_PASSWORD} characters</span>}
             </label>
             {error && (
               <p role="alert" className="text-[15px] font-semibold text-down">
                 {error}
               </p>
             )}
-            <button type="submit" className="cta mt-2 w-full" disabled={busy || !email || !password}>
-              {busy ? 'Signing in…' : 'Sign in'}
+            <button type="submit" className="cta mt-2 w-full" disabled={busy || !email || !password || short}>
+              {signingUp ? (busy ? 'Creating your account…' : 'Create account') : busy ? 'Signing in…' : 'Sign in'}
             </button>
+            <p className="text-center text-[14px] text-mute">
+              {signingUp ? 'Already have an account?' : 'New here?'}{' '}
+              <button type="button" className="min-h-11 font-semibold text-accent-2 underline underline-offset-4" onClick={switchMode}>
+                {signingUp ? 'Sign in' : 'Create an account'}
+              </button>
+            </p>
           </form>
         )}
       </div>
     </Screen>
   )
+}
+
+const MIN_PASSWORD = 8
+
+function signInError(err: unknown) {
+  const msg = err instanceof Error ? err.message : ''
+  if (/not confirmed/i.test(msg)) return 'Confirm your email first: open the link we sent you, then sign in.'
+  if (/invalid/i.test(msg)) return "That email or password didn't work."
+  return 'Could not sign in. Check your connection and try again.'
+}
+
+function signUpError(err: unknown) {
+  const msg = err instanceof Error ? err.message : ''
+  if (/already registered|already exists/i.test(msg)) return 'There is already an account with that email. Try signing in instead.'
+  if (/signups? not allowed|disabled/i.test(msg)) return "New accounts can't be made right now."
+  if (/password/i.test(msg)) return msg
+  if (/email/i.test(msg)) return "That email address doesn't look right."
+  if (/rate limit/i.test(msg)) return 'Too many tries. Wait a few minutes and try again.'
+  return 'Could not create the account. Check your connection and try again.'
 }
