@@ -143,10 +143,13 @@ function signInError(err: unknown) {
 
 function signUpError(err: unknown) {
   const msg = err instanceof Error ? err.message : ''
+  // Most specific first: several of Supabase's messages mention "email".
+  if (/rate limit/i.test(msg)) return 'Too many sign-ups in the last hour. Wait a while and try again.'
   if (/already registered|already exists/i.test(msg)) return 'There is already an account with that email. Try signing in instead.'
   if (/signups? not allowed|disabled/i.test(msg)) return "New accounts can't be made right now."
+  if (/not authori[sz]ed/i.test(msg)) return "Can't send a confirmation email to that address yet. The app's email sender only reaches some addresses."
+  if (/invalid/i.test(msg) && /email/i.test(msg)) return "That email address doesn't look right."
   if (/password/i.test(msg)) return msg
-  if (/email/i.test(msg)) return "That email address doesn't look right."
-  if (/rate limit/i.test(msg)) return 'Too many tries. Wait a few minutes and try again.'
-  return 'Could not create the account. Check your connection and try again.'
+  if (/fetch|network/i.test(msg)) return 'Could not create the account. Check your connection and try again.'
+  return `Could not create the account: ${msg || 'unknown error'}.`
 }
