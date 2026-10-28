@@ -161,7 +161,7 @@ export function topK(ids: string[], scores: Float32Array, k: number): ArtMatch[]
 /**
  * The closest cards to the card in this picture (a crop of the card-shaped guide). `thorough`
  * also tries the picture slightly cropped, since nobody lines a card up exactly: about three
- * times slower, and noticeably better. Rapid mode, which looks many times a second, skips it.
+ * times slower, and noticeably better.
  */
 export async function matchCard(source: Picture, k = 8, thorough = true): Promise<ArtMatch[]> {
   const [index, embedders] = await Promise.all([loadIndex(), loadEmbedders()])

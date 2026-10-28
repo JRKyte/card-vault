@@ -1,4 +1,4 @@
-// The rapid-scan tray: cards scanned but not yet added, reviewed before "Add all".
+// The scan tray: cards snapped but not yet added, reviewed before "Add all".
 
 import { variantsFor, type Condition } from './pricing'
 import type { CollectionItem } from './sets'
@@ -13,23 +13,39 @@ export interface TrayItem {
   variant: Variant
   condition: Condition
   quantity: number
+  /** Snapped and still being recognised. */
+  pending?: boolean
+  /** Couldn't be recognised, or the scan was interrupted. */
+  failed?: boolean
+  /** A small copy of the snap, shown while it's recognised and next to the options to pick from. */
+  photo?: string
 }
 
 export const chosenCard = (item: TrayItem) => item.options.find((c) => c.id === item.chosen) ?? null
 
-/** Add a scan: the same card again bumps its quantity; anything else is a new row. */
-export function addScan(tray: TrayItem[], cards: Card[], newId: () => string): TrayItem[] {
-  if (!cards.length) return tray
-  if (cards.length === 1) {
-    const existing = tray.find((t) => t.chosen === cards[0].id)
-    if (existing) return tray.map((t) => (t === existing ? { ...t, quantity: t.quantity + 1 } : t))
-  }
-  const first = cards[0]
-  return [
-    ...tray,
-    { id: newId(), options: cards, chosen: cards.length === 1 ? first.id : null, variant: variantsFor(first)[0], condition: 'near_mint', quantity: 1 },
-  ]
+/** A snapped card goes in the tray straight away, to be recognised in the background. */
+export function addPending(tray: TrayItem[], id: string, photo: string): TrayItem[] {
+  return [...tray, { id, options: [], chosen: null, variant: 'normal', condition: 'near_mint', quantity: 1, pending: true, photo }]
 }
+
+/**
+ * A snap has been recognised. One sure card that's already in the tray bumps that row's count
+ * instead; nothing found marks the snap as failed. A snap removed meanwhile is left out.
+ */
+export function resolveScan(tray: TrayItem[], id: string, cards: Card[]): TrayItem[] {
+  const row = tray.find((t) => t.id === id)
+  if (!row) return tray
+  if (!cards.length) return tray.map((t) => (t === row ? { ...t, pending: false, failed: true } : t))
+  if (cards.length === 1) {
+    const existing = tray.find((t) => t !== row && t.chosen === cards[0].id)
+    if (existing) return tray.filter((t) => t !== row).map((t) => (t === existing ? { ...t, quantity: t.quantity + 1 } : t))
+  }
+  const resolved: TrayItem = { ...row, options: cards, chosen: cards.length === 1 ? cards[0].id : null, variant: variantsFor(cards[0])[0], pending: false }
+  return tray.map((t) => (t === row ? resolved : t))
+}
+
+/** Rows ready to add: recognised and picked. */
+export const readyRows = (tray: TrayItem[]) => tray.filter((t) => t.chosen)
 
 /** What an Undo of a batch must do, newest add first: set a row's count back, or delete it. */
 export function undoSteps(adds: { row: CollectionItem; quantity: number }[]): { id: string; left: number }[] {
@@ -41,7 +57,8 @@ const KEY = 'scan-tray'
 /** The tray survives closing the scanner by accident (this tab only). */
 export function loadTray(): TrayItem[] {
   try {
-    return JSON.parse(sessionStorage.getItem(KEY) ?? '[]') as TrayItem[]
+    // Snaps still being recognised when the scanner closed won't finish now.
+    return (JSON.parse(sessionStorage.getItem(KEY) ?? '[]') as TrayItem[]).map((t) => (t.pending ? { ...t, pending: false, failed: true } : t))
   } catch {
     return []
   }

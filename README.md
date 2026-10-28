@@ -84,15 +84,15 @@ The **Swaps** tab lets two collectors see which cards they could swap.
 
 ## Scanning cards
 
-**Add → Scan card** opens the camera. Fit the card in the frame and tap the button. The card is recognised by its **picture**: two small image models ([DINOv2-small](https://huggingface.co/onnx-community/dinov2-small) and [MobileCLIP-S0](https://huggingface.co/Xenova/mobileclip_s0), run on the phone with [Transformers.js](https://huggingface.co/docs/transformers.js)) each turn it into a fingerprint, which is compared with the fingerprints of every card. Free, no server, no account. The first time the scanner opens it downloads the models (~47MB) and fingerprints (~19MB); after that they're cached on the phone.
+**Add → Scan card** opens the camera. Fit a card in the frame and tap the button: the snap drops into a tray at the bottom with a spinner while it's recognised, so you can go straight on to the next card. The card is recognised by its **picture**: two small image models ([DINOv2-small](https://huggingface.co/onnx-community/dinov2-small) and [MobileCLIP-S0](https://huggingface.co/Xenova/mobileclip_s0), run on the phone with [Transformers.js](https://huggingface.co/docs/transformers.js)) each turn it into a fingerprint, which is compared with the fingerprints of every card. Free, no server, no account. The first time the scanner opens it downloads the models (~47MB) and fingerprints (~19MB); after that they're cached on the phone.
 
-- When one card is clearly closest, its add drawer opens. Closing it without adding shows the next closest cards, in case it picked the wrong one.
-- When it isn't sure, it shows the closest six pictures to tap. Meanwhile it reads the number on the bottom ([Tesseract.js](https://tesseract.projectnaptha.com/)); if that fits one of them, that card moves to the front tagged "Number matches".
-- Reprints with the same art (e.g. Base Set and Legendary Collection Charizard) look the same to it; check the set when you add.
+- One card: snap it, tap **Review**, then **Add**. A pile: snap them one after another, then review once.
+- When one card is clearly closest, it goes in the tray as that card. When it isn't sure, it reads the number on the bottom ([Tesseract.js](https://tesseract.projectnaptha.com/)) to decide; if that doesn't settle it, the card is marked "?" with the closest pictures to pick from in Review.
+- Snapping the same card again adds another copy. Cards it can't recognise are marked "!" and left out of Add all.
+- **Review** lets you change versions, conditions and counts, then **Add all** adds the lot with one Undo. The tray survives closing the scanner by accident (until the tab closes).
+- Reprints with the same art (e.g. Base Set and Legendary Collection Charizard) look the same to it; check the set in Review.
 - Shiny cards in sleeves or toploaders are the hardest: glare covers the picture. Take them out if it struggles.
 - **Use a photo instead** lets you take the picture with the phone's own camera, which focuses better close up.
-
-**Rapid** mode (the switch at the top) is for a pile of cards: the camera keeps looking, and each card goes into a tray with a beep. Hold one card at a time in the frame, then swap to the next. A card left in view isn't added twice; show it again after a few seconds to count another copy. Cards it isn't sure of go in the tray marked "?" with the closest pictures to pick from. **Review** lets you change versions, conditions and counts, then **Add all** adds the lot with one Undo. The tray survives closing the scanner by accident (until the tab closes).
 
 ### Updating the fingerprints for new sets
 

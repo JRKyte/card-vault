@@ -330,6 +330,18 @@ button {
   }
 }
 
+/* Scanner: the shutter flash on each snap. */
+@keyframes flash {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.animate-flash {
+  animation: flash 380ms ease-out forwards;
+}
 @keyframes shimmer {
   0% {
     background-position: -200% 0;

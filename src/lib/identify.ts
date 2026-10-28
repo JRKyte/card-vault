@@ -8,11 +8,9 @@ import { setCodes } from './search'
 import type { Card } from './tcg'
 
 // Both measured on photo-like test images of real cards and on ordinary non-card photos: a wrong
-// best match led the runner-up by at most ~0.011; empty frames scored at most ~0.54, cards ~0.63+.
+// best match led the runner-up by at most ~0.011.
 /** How far ahead of the runner-up the best picture match must be to trust it alone. */
 export const SURE_MARGIN = 0.02
-/** Below this, the best match is too weak to mean a card is in the frame at all (rapid mode). */
-export const PRESENT_SCORE = 0.58
 /** How many of the closest pictures to offer when it isn't sure. */
 export const OPTIONS = 6
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CollectionItem } from './sets'
 import type { Card } from './tcg'
-import { addScan, chosenCard, undoSteps } from './tray'
+import { addPending, chosenCard, resolveScan, undoSteps, type TrayItem } from './tray'
 
 const card = (id: string): Card => ({
   id,
@@ -17,28 +17,49 @@ let n = 0
 const id = () => `t${++n}`
 
 describe('scan tray', () => {
-  it('adds a sure scan as a picked row with its first version', () => {
-    const tray = addScan([], [card('a')], id)
+  const snap = (tray: TrayItem[], cards: Card[]) => {
+    const rid = id()
+    return resolveScan(addPending(tray, rid, 'data:'), rid, cards)
+  }
+
+  it('shows a snap straight away, waiting to be recognised', () => {
+    const tray = addPending([], 'p', 'data:photo')
+    expect(tray[0]).toMatchObject({ id: 'p', pending: true, chosen: null, photo: 'data:photo' })
+  })
+
+  it('turns a sure snap into a picked row with its first version', () => {
+    const tray = snap([], [card('a')])
     expect(tray).toHaveLength(1)
-    expect(tray[0]).toMatchObject({ chosen: 'a', variant: 'holofoil', condition: 'near_mint', quantity: 1 })
+    expect(tray[0]).toMatchObject({ chosen: 'a', variant: 'holofoil', condition: 'near_mint', quantity: 1, pending: false })
     expect(chosenCard(tray[0])?.id).toBe('a')
   })
 
-  it('bumps the quantity when the same card is scanned again', () => {
-    const tray = addScan(addScan([], [card('a')], id), [card('a')], id)
+  it('bumps the quantity when the same card is snapped again', () => {
+    const tray = snap(snap([], [card('a')]), [card('a')])
     expect(tray).toHaveLength(1)
     expect(tray[0].quantity).toBe(2)
   })
 
-  it('adds an unsure scan as a row to pick from', () => {
-    const tray = addScan([], [card('a'), card('b')], id)
-    expect(tray[0]).toMatchObject({ chosen: null })
+  it('keeps snaps in the order they were taken, even if recognised out of order', () => {
+    let tray = addPending(addPending([], 'p1', ''), 'p2', '')
+    tray = resolveScan(tray, 'p2', [card('b')])
+    tray = resolveScan(tray, 'p1', [card('a')])
+    expect(tray.map((t) => t.chosen)).toEqual(['a', 'b'])
+  })
+
+  it('makes an unsure snap a row to pick from, keeping the photo', () => {
+    const tray = snap([], [card('a'), card('b')])
+    expect(tray[0]).toMatchObject({ chosen: null, photo: 'data:' })
     expect(tray[0].options.map((c) => c.id)).toEqual(['a', 'b'])
     expect(chosenCard(tray[0])).toBeNull()
   })
 
-  it('ignores scans that found nothing', () => {
-    expect(addScan([], [], id)).toEqual([])
+  it('marks a snap that found nothing as failed', () => {
+    expect(snap([], [])[0]).toMatchObject({ failed: true, pending: false })
+  })
+
+  it('ignores a result for a snap that was removed', () => {
+    expect(resolveScan([], 'gone', [card('a')])).toEqual([])
   })
 })
 

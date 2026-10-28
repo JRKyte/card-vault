@@ -6,7 +6,7 @@ import { keys, useCards } from '../lib/queries'
 import type { CollectionItem } from '../lib/sets'
 import { store } from '../lib/store'
 import type { Card, Variant } from '../lib/tcg'
-import { chosenCard, undoSteps, type TrayItem } from '../lib/tray'
+import { chosenCard, readyRows, undoSteps, type TrayItem } from '../lib/tray'
 import { Thumb } from './cards'
 import { IconCheck, IconPlus, IconX } from './icons'
 import { useToast } from './Toast'
@@ -37,27 +37,46 @@ export function useBatchAdd() {
   }
 }
 
-/** The strip above the scan button: what's been caught so far, newest first. */
+/** A snap that isn't a known card yet: its photo, with a spinner while it's recognised. */
+function SnapThumb({ item, width }: { item: TrayItem; width: number }) {
+  return (
+    <div className="relative overflow-hidden rounded-[6px] bg-[var(--chip)]" style={{ width, aspectRatio: '63/88' }}>
+      {item.photo && <img src={item.photo} alt="" className={`h-full w-full object-cover ${item.pending ? 'opacity-60' : ''}`} />}
+      {item.pending && (
+        <span className="absolute inset-0 grid place-items-center">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** The strip above the scan button: what's been snapped so far, newest first. */
 export function TrayStrip({ tray, flashId, onReview }: { tray: TrayItem[]; flashId: string | null; onReview: () => void }) {
   if (!tray.length) return null
-  const copies = tray.reduce((n, t) => n + t.quantity, 0)
-  const toPick = tray.filter((t) => !t.chosen).length
+  const copies = readyRows(tray).reduce((n, t) => n + t.quantity, 0)
+  const pending = tray.filter((t) => t.pending).length
+  const toPick = tray.filter((t) => !t.chosen && !t.pending && !t.failed).length
   return (
     <div className="flex w-full max-w-[460px] items-center gap-3 rounded-[22px] bg-black/60 p-2 pr-2 backdrop-blur">
       <div className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
         {[...tray].reverse().map((t) => {
-          const card = chosenCard(t) ?? t.options[0]
+          // Until it's a known card, show the snap itself rather than a guess.
+          const card = chosenCard(t)
           return (
             <div key={t.id} className={`relative flex-none ${t.id === flashId ? 'animate-pop' : ''}`}>
-              <Thumb card={card} width={36} />
-              {!t.chosen && <span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[#f472b6] text-[10px] font-bold text-white">?</span>}
+              {card ? <Thumb card={card} width={36} /> : <SnapThumb item={t} width={36} />}
+              {!t.chosen && !t.pending && (
+                <span className={`absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold text-white ${t.failed ? 'bg-down' : 'bg-[#f472b6]'}`}>{t.failed ? '!' : '?'}</span>
+              )}
               {t.quantity > 1 && <span className="mono absolute -right-1 -bottom-1 rounded-full bg-sel px-1 text-[9px] font-bold text-white">×{t.quantity}</span>}
             </div>
           )
         })}
       </div>
       <button type="button" onClick={onReview} className="btn flex-none !min-h-11 !px-4 !text-[14px]">
-        Review {copies}
+        Review {copies || ''}
+        {pending > 0 && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-label={`${pending} scanning`} />}
         {toPick > 0 && <span className="rounded-full bg-[#f472b6] px-1.5 text-[11px]">{toPick} ?</span>}
       </button>
     </div>
@@ -76,15 +95,19 @@ export function ReviewSheet({ tray, onChange, onClose, onAdded }: { tray: TrayIt
 
   const update = (id: string, patch: Partial<TrayItem>) => onChange(tray.map((t) => (t.id === id ? { ...t, ...patch } : t)))
   const remove = (id: string) => onChange(tray.filter((t) => t.id !== id))
-  const toPick = tray.filter((t) => !t.chosen).length
-  const copies = tray.reduce((n, t) => n + t.quantity, 0)
+  const ready = readyRows(tray)
+  const pending = tray.filter((t) => t.pending).length
+  const failed = tray.filter((t) => t.failed).length
+  const toPick = tray.filter((t) => !t.chosen && !t.pending && !t.failed).length
+  const copies = ready.reduce((n, t) => n + t.quantity, 0)
 
   async function addAll() {
     setBusy(true)
     setError(false)
     try {
       await batchAdd(
-        tray.map((t) => {
+        // Snaps that couldn't be recognised are left out.
+        ready.map((t) => {
           const card = fullCard(chosenCard(t)!)
           // Keep the chosen version valid for the full card.
           const variant = variantsFor(card).includes(t.variant) ? t.variant : variantsFor(card)[0]
@@ -106,7 +129,9 @@ export function ReviewSheet({ tray, onChange, onClose, onAdded }: { tray: TrayIt
           <h2 className="text-[18px] font-bold tracking-tight">
             {copies} scanned {copies === 1 ? 'card' : 'cards'}
           </h2>
-          <div className="text-[12.5px] text-mute">{toPick ? `${toPick} to pick, tap the right one` : 'Check them, then add them all'}</div>
+          <div className="text-[12.5px] text-mute">
+            {pending ? `Still scanning ${pending}…` : toPick ? `${toPick} to pick, tap the right one` : 'Check them, then add them all'}
+          </div>
         </div>
         <button type="button" aria-label="Close" className="grid h-10 w-10 place-items-center rounded-full text-mute hover:bg-[var(--chip)]" onClick={onClose}>
           <IconX size={18} />
@@ -114,7 +139,9 @@ export function ReviewSheet({ tray, onChange, onClose, onAdded }: { tray: TrayIt
       </div>
       <div className="flex flex-col gap-2.5 overflow-y-auto p-4">
         {tray.map((t) =>
-          t.chosen ? (
+          t.pending || t.failed ? (
+            <SnapRow key={t.id} item={t} onRemove={() => remove(t.id)} />
+          ) : t.chosen ? (
             <PickedRow key={t.id} item={t} card={fullCard(chosenCard(t)!)} onChange={(patch) => update(t.id, patch)} onRemove={() => remove(t.id)} />
           ) : (
             <PickRow key={t.id} item={t} onPick={(card) => update(t.id, { chosen: card.id, variant: variantsFor(card)[0] })} onRemove={() => remove(t.id)} />
@@ -124,8 +151,9 @@ export function ReviewSheet({ tray, onChange, onClose, onAdded }: { tray: TrayIt
       </div>
       <div className="flex flex-col gap-2 border-t border-[var(--line)] p-4">
         {error && <p className="text-[13px] font-semibold text-down">Couldn't add them. Check your connection and try again.</p>}
-        <button type="button" className="cta w-full" disabled={busy || !tray.length || toPick > 0} onClick={addAll}>
-          <IconPlus size={18} strokeWidth={2.6} /> {toPick > 0 ? `Pick ${toPick} first` : busy ? 'Adding…' : `Add all ${copies}`}
+        {failed > 0 && !pending && !toPick && <p className="text-center text-[12.5px] text-mute">Cards that couldn't be recognised won't be added.</p>}
+        <button type="button" className="cta w-full" disabled={busy || !ready.length || toPick > 0 || pending > 0} onClick={addAll}>
+          <IconPlus size={18} strokeWidth={2.6} /> {pending > 0 ? `Scanning ${pending}…` : toPick > 0 ? `Pick ${toPick} first` : busy ? 'Adding…' : copies === 1 ? 'Add 1 card' : `Add all ${copies}`}
         </button>
       </div>
     </Modal>
@@ -189,7 +217,10 @@ function PickRow({ item, onPick, onRemove }: { item: TrayItem; onPick: (c: Card)
   return (
     <div className="flex flex-col gap-2 rounded-[18px] border border-[rgba(244,114,182,.4)] p-2.5" style={{ boxShadow: '0 0 18px rgba(244,114,182,.1)' }}>
       <div className="flex items-center justify-between px-1">
-        <span className="text-[13px] font-semibold text-[#f9a8d4]">Which one is it?</span>
+        <span className="flex items-center gap-2.5 text-[13px] font-semibold text-[#f9a8d4]">
+          {item.photo && <img src={item.photo} alt="Your snap" className="aspect-[63/88] w-9 rounded-[5px] object-cover" />}
+          Which one is it?
+        </span>
         <button type="button" aria-label="Remove" className="grid h-8 w-8 place-items-center rounded-full text-mute hover:bg-[var(--chip)]" onClick={onRemove}>
           <IconX size={16} />
         </button>
@@ -206,6 +237,21 @@ function PickRow({ item, onPick, onRemove }: { item: TrayItem; onPick: (c: Card)
           <IconCheck size={18} className="text-mute" />
         </button>
       ))}
+    </div>
+  )
+}
+
+function SnapRow({ item, onRemove }: { item: TrayItem; onRemove: () => void }) {
+  return (
+    <div className={`surface flex items-center gap-3 !rounded-[18px] p-2.5 ${item.failed ? '!border-[rgba(248,113,113,.4)]' : ''}`}>
+      <SnapThumb item={item} width={52} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[15px] font-semibold">{item.pending ? 'Scanning…' : "Couldn't recognise this one"}</div>
+        <div className="text-[12px] text-mute">{item.pending ? 'This takes a second or two' : 'Snap it again, or add it from search'}</div>
+      </div>
+      <button type="button" aria-label="Remove" className="grid h-8 w-8 flex-none place-items-center rounded-full text-mute hover:bg-[var(--chip)]" onClick={onRemove}>
+        <IconX size={16} />
+      </button>
     </div>
   )
 }
