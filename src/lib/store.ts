@@ -575,6 +575,7 @@ class LocalStore implements Store {
  * 'confirmed' means the email is confirmed; if the code also signed us in, the app just carries on.
  */
 export const authRedirect: { confirmed: true } | { error: string } | null = (() => {
+  if (typeof location === 'undefined') return null // tests run outside a browser
   const q = new URLSearchParams(location.search)
   if (q.has('code')) return { confirmed: true }
   const error = q.get('error_description') ?? q.get('error')
