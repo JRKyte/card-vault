@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { IconEye, IconEyeOff } from '../components/icons'
 import { Screen } from '../components/ui'
 import { keys } from '../lib/queries'
-import { store } from '../lib/store'
+import { authRedirect, store } from '../lib/store'
 
 export function Login() {
   const qc = useQueryClient()
@@ -14,12 +14,15 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [signingUp, setSigningUp] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
+  // Arrived from the link in a sign-up email, but signed out (it was opened in another browser).
+  const [linkNote, setLinkNote] = useState(authRedirect)
 
   const short = signingUp && password.length > 0 && password.length < MIN_PASSWORD
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (short) return
+    setLinkNote(null)
     setBusy(true)
     setError(null)
     try {
@@ -81,6 +84,13 @@ export function Login() {
           </div>
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
+            {linkNote && (
+              <p role="status" className={`rounded-2xl p-4 text-[14px] font-semibold ${'error' in linkNote ? 'bg-[rgba(248,113,113,.12)] text-down' : 'bg-[rgba(52,211,153,.12)] text-up'}`}>
+                {'error' in linkNote
+                  ? `That link didn't work: ${linkNote.error.replace(/\.$/, '')}. Try signing in, or create the account again.`
+                  : 'Your account is confirmed. Sign in to get started.'}
+              </p>
+            )}
             {signingUp && <h2 className="-mt-2 text-[22px] font-bold tracking-[-.03em]">Create an account</h2>}
             <label className="flex flex-col gap-2">
               <span className="eyebrow">Email</span>

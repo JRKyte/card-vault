@@ -181,6 +181,62 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
   )
 }
 
+export const DELETE_WORD = 'DELETE'
+
+function DeleteAccount({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const ready = typed.trim().toUpperCase() === DELETE_WORD
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!ready) return
+    setBusy(true)
+    setError(null)
+    try {
+      await store.deleteAccount()
+      qc.clear()
+      qc.invalidateQueries({ queryKey: keys.user })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete the account. Try again.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} title="Delete account">
+      <form onSubmit={submit} className="flex flex-col gap-4 overflow-y-auto p-5">
+        <h2 className="text-[24px] font-extrabold">Delete your account?</h2>
+        <p className="text-[14px] text-mute">
+          This deletes your account and everything in it: your cards, sets, custom sets, value history and friends. It can't be undone. To keep a copy, use
+          Export collection first.
+        </p>
+        <label className="flex flex-col gap-2">
+          <span className="text-[14px] font-semibold">
+            Type <span className="mono text-down">{DELETE_WORD}</span> to confirm
+          </span>
+          <input className="field mono" value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false} />
+        </label>
+        {error && (
+          <p role="alert" className="text-[13px] font-semibold text-down">
+            {error}
+          </p>
+        )}
+        <div className="mt-1 flex gap-3">
+          <button type="button" className="chip-btn !min-h-12" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn flex-1" style={{ background: '#dc2626', boxShadow: '0 0 20px rgba(248,113,113,.35)' }} disabled={!ready || busy}>
+            {busy ? 'Deleting…' : 'Delete my account'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function AvatarPicker({ profile, set, fromCollection = true }: { profile: Profile; set: (p: Partial<Profile>) => void; fromCollection?: boolean }) {
   const [mine, setMine] = useState(false)
   // Resolve any option without a pinned card id: newest card with that exact name.
@@ -296,6 +352,7 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
   const membership = useCustomMembership()
   const fileRef = useRef<HTMLInputElement>(null)
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [key, setKey] = useState(() => {
@@ -443,6 +500,12 @@ function Preferences({ profile, set }: { profile: Profile; set: (p: Partial<Prof
           className="field mono !h-[46px] !text-[13px]"
           aria-label="pokemontcg.io API key"
         />
+      </Row>
+      <Row label="Delete account" sub={store.mode === 'supabase' ? 'Removes your account and every card, set and friend' : 'Removes everything saved on this device'}>
+        <button type="button" className="chip-btn !text-down" onClick={() => setDeleteOpen(true)}>
+          Delete
+        </button>
+        {deleteOpen && <DeleteAccount onClose={() => setDeleteOpen(false)} />}
       </Row>
       {note && <p className="py-3 text-[13px] font-semibold text-accent-2">{note}</p>}
     </section>

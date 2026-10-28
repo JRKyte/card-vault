@@ -78,6 +78,8 @@ export interface Store {
   /** Make a new account. `confirm` is true when Supabase wants the email confirmed before signing in. */
   signUp(email: string, password: string): Promise<{ confirm: boolean }>
   signOut(): Promise<void>
+  /** Deletes the account and everything in it, then signs out. */
+  deleteAccount(): Promise<void>
   /** Checks the current password, then sets a new one. */
   changePassword(current: string, next: string): Promise<void>
 
@@ -141,8 +143,8 @@ class SupabaseStore implements Store {
 
   async getUser() {
     const { data } = await this.sb.auth.getSession()
-    // A confirmation link lands with ?code=…; the client has used it by now, so tidy the address.
-    if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash)
+    // A confirmation link lands with ?code=… (or ?error=…); it's been used by now, so tidy the address.
+    if (authRedirect) history.replaceState(history.state, '', location.pathname + location.hash)
     const u = data.session?.user
     return u ? { id: u.id, email: u.email ?? '' } : null
   }
@@ -164,6 +166,12 @@ class SupabaseStore implements Store {
   }
   async signOut() {
     await this.sb.auth.signOut()
+  }
+  async deleteAccount() {
+    const { error } = await this.sb.rpc('delete_my_account')
+    if (error) throw new Error(/function|schema cache/i.test(error.message) ? 'Account deletion isn\'t set up yet: run supabase/migrations/0003_delete_account.sql in Supabase.' : error.message)
+    // The user is gone, so only clear this device's session.
+    await this.sb.auth.signOut({ scope: 'local' })
   }
   async changePassword(current: string, next: string) {
     const { data } = await this.sb.auth.getSession()
@@ -388,6 +396,10 @@ class LocalStore implements Store {
     this.write((d) => (d.signedIn = false))
     this.listeners.forEach((f) => f())
   }
+  async deleteAccount() {
+    localStorage.removeItem(LOCAL_KEY)
+    this.listeners.forEach((f) => f())
+  }
   async changePassword() {
     throw new Error('There are no passwords on this device-only setup.')
   }
@@ -557,6 +569,17 @@ class LocalStore implements Store {
     return []
   }
 }
+
+/**
+ * Where the confirmation link in a sign-up email brought us, read before Supabase uses the code.
+ * 'confirmed' means the email is confirmed; if the code also signed us in, the app just carries on.
+ */
+export const authRedirect: { confirmed: true } | { error: string } | null = (() => {
+  const q = new URLSearchParams(location.search)
+  if (q.has('code')) return { confirmed: true }
+  const error = q.get('error_description') ?? q.get('error')
+  return error ? { error: error.replace(/\+/g, ' ') } : null
+})()
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 // The publishable key (sb_publishable_…) or a legacy anon key; both work the same here.
