@@ -7,6 +7,7 @@ import { BackPill, ErrorMessage, Message, Screen, Skeleton, TopRow } from '../co
 import { CUSTOM_SET_SWATCHES, customColor } from '../data/set-colors'
 import { runSmartQuery, smartQueryFor, termFromQuery } from '../lib/cards'
 import { alpha } from '../lib/color'
+import { isListScreen, useGoUp } from '../lib/trail'
 import { clearDraft, loadDraft, saveDraft, type Draft } from '../lib/draft'
 import { useCurrencyMode } from '../lib/money'
 import { bestEur, bestUsd, displayPrice } from '../lib/pricing'
@@ -60,6 +61,7 @@ function useDebounced<T>(value: T, ms: number): T {
 
 function Editor({ initial, editId, original }: { initial: Draft; editId?: string; original?: CustomSet }) {
   const navigate = useNavigate()
+  const goUp = useGoUp()
   const [d, setD] = useState<Draft>(initial)
   const update = (patch: Partial<Draft>) => setD((prev) => ({ ...prev, ...patch }))
   const create = useCreateCustomSet()
@@ -99,7 +101,7 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
     }
     if (editId) {
       await save.mutateAsync({ id: editId, patch: fields, resolve: d.kind === 'smart' && smartChanged ? { ...original!, ...fields } : undefined })
-      navigate(`/custom/${editId}`, { replace: true })
+      goUp(`/custom/${editId}`)
     } else {
       const ids = d.kind === 'smart' ? (preview.data ?? []).map((c) => c.id) : d.cards
       const created = await create.mutateAsync({ set: fields, cardIds: ids })
@@ -120,7 +122,8 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
             className="chip-btn !pl-3"
             onClick={() => {
               if (!editId) clearDraft()
-              navigate(editId ? `/custom/${editId}` : '/', { replace: true })
+              if (editId) goUp(`/custom/${editId}`)
+              else goUp(isListScreen, '/sets')
             }}
           >
             <IconX size={15} /> Cancel
@@ -206,7 +209,7 @@ function Editor({ initial, editId, original }: { initial: Draft; editId?: string
           onClick={async () => {
             if (!confirm(`Delete "${original?.name}"? Your cards stay in your collection.`)) return
             await del.mutateAsync(editId)
-            navigate('/', { replace: true })
+            goUp(isListScreen, '/sets')
           }}
         >
           Delete this set

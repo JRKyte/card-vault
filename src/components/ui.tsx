@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { alpha } from '../lib/color'
+import { useGoUp, type ParentMatch } from '../lib/trail'
 import { IconChevronLeft } from './icons'
 
 /**
@@ -39,13 +40,18 @@ function useScrolledPast(y: number) {
  * Back pill. Goes back in history when there is some, else to `fallback`. Once the page scrolls
  * past it, a floating copy appears bottom-left so long pages don't need scrolling back up.
  */
-export function BackPill({ label, to, fallback = '/' }: { label: string; to?: string; fallback?: string }) {
+/**
+ * Back to the parent screen `to` (a path, or a test for any acceptable parent). Without `to`, just
+ * one step back. Either way, `fallback` opens in place of this screen when there's nowhere to go.
+ */
+export function BackPill({ label, to, fallback }: { label: string; to?: ParentMatch; fallback?: string }) {
   const navigate = useNavigate()
+  const goUp = useGoUp()
   const floating = useScrolledPast(120)
   const go = () => {
-    if (to) navigate(to)
+    if (to) goUp(to, fallback)
     else if (window.history.state?.idx > 0) navigate(-1)
-    else navigate(fallback)
+    else navigate(fallback ?? '/', { replace: true })
   }
   return (
     <>

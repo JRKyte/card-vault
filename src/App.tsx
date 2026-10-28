@@ -5,6 +5,7 @@ import { Nav } from './components/Nav'
 import { keys, useProfile, useUser } from './lib/queries'
 import { useDailySnapshot } from './lib/snapshot'
 import { store } from './lib/store'
+import { useTrail } from './lib/trail'
 import { AddCard } from './screens/AddCard'
 import { CustomSetEditor } from './screens/CustomSetEditor'
 import { Dashboard } from './screens/Dashboard'
@@ -51,6 +52,7 @@ function ProfileGate() {
 
 function SignedIn() {
   useDailySnapshot()
+  useTrail()
   const { pathname } = useLocation()
   useEffect(() => {
     window.scrollTo(0, 0)

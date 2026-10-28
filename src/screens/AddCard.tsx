@@ -22,7 +22,7 @@ export function AddCard({ mode }: { mode: 'add' | 'edit' }) {
   const card = useCard(cardId)
   const location = useLocation()
   const from = (location.state as FromState | null)?.from
-  const back = <BackPill label={from ? from.name : mode === 'add' ? 'Results' : 'Back'} fallback={from?.href ?? (mode === 'add' ? '/add' : '/')} />
+  const back = <BackPill label={from ? from.name : mode === 'add' ? 'Results' : 'Back'} to={from?.href} fallback={from?.href ?? (mode === 'add' ? '/add' : '/')} />
 
   if (card.isLoading) {
     return (

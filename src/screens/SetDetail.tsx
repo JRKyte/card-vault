@@ -6,6 +6,7 @@ import { MasteredCelebration } from '../components/Celebrate'
 import { IconEdit, IconPlus, IconRefresh, IconX } from '../components/icons'
 import { QuickAddSheet } from '../components/QuickAdd'
 import { SetIcon } from '../components/SetBits'
+import { isListScreen } from '../lib/trail'
 import { BackPill, ErrorMessage, Message, ProgressBar, Screen, Segmented, Skeleton, StatusPill, tint, TopRow } from '../components/ui'
 import { customColor, setColor } from '../data/set-colors'
 import { resolveSmartSet } from '../lib/cards'
@@ -51,7 +52,7 @@ function OfficialSet({ id }: { id: string }) {
   if (!set) {
     return (
       <Screen>
-        <TopRow left={<BackPill label="Back" fallback="/sets" />} />
+        <TopRow left={<BackPill label="Back" to={isListScreen} fallback="/sets" />} />
         {sets.error ? <ErrorMessage error={sets.error} retry={() => sets.refetch()} /> : <Message title="Set not found" body="This set isn't in the card list." />}
       </Screen>
     )
@@ -128,7 +129,7 @@ function CustomSetView({ id }: { id: string }) {
   if (!set) {
     return (
       <Screen>
-        <TopRow left={<BackPill label="Back" fallback="/sets" />} />
+        <TopRow left={<BackPill label="Back" to={isListScreen} fallback="/sets" />} />
         <Message title="Set not found" body="It may have been deleted on another device." />
       </Screen>
     )
@@ -267,7 +268,7 @@ function SetBody({
   return (
     <Screen>
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px]" style={{ background: `radial-gradient(60% 50% at 50% 0%, ${alpha(color, 0.22)}, transparent 70%)` }} />
-      <TopRow left={<BackPill label="Back" fallback="/sets" />} right={<StatusPill dot={color}>{badge}</StatusPill>} />
+      <TopRow left={<BackPill label="Back" to={isListScreen} fallback="/sets" />} right={<StatusPill dot={color}>{badge}</StatusPill>} />
 
       <section
         className="relative flex flex-col gap-4 overflow-hidden rounded-[26px] p-5 wide:p-6"
