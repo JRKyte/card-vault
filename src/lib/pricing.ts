@@ -28,6 +28,24 @@ export const VARIANT_LABEL: Record<Variant, string> = {
 /** Fixed rate for the "approx £" line. No exchange-rate API on purpose. */
 export const EUR_TO_GBP = 0.85
 
+/** Fixed rate for estimating euros from dollars when Cardmarket's price can't be trusted. */
+export const USD_TO_EUR = 0.87
+
+/**
+ * Cardmarket only counts as wrong when it's far below TCGplayer on a card worth real money. That's
+ * the known failure: TCGdex sometimes links a set's special printings (illustration rares, gold
+ * cards) to the regular card's Cardmarket listing, so a $300 card shows the regular card's €5.
+ */
+const MISMATCH_RATIO = 4
+const MISMATCH_MIN_EUR = 20
+
+/** Cardmarket's EUR, or an estimate from TCGplayer's USD when Cardmarket is clearly for another printing. */
+export function checkedEur(eur: number | null, usd: number | null): number | null {
+  if (eur === null || usd === null) return eur
+  const estimate = round(usd * USD_TO_EUR)
+  return estimate >= MISMATCH_MIN_EUR && estimate > eur * MISMATCH_RATIO ? estimate : eur
+}
+
 export interface Price {
   usd: number | null
   eur: number | null
@@ -51,7 +69,12 @@ export function usdFor(card: Card, variant: Variant): number | null {
   return null
 }
 
+/** Cardmarket's EUR for a printing, checked against TCGplayer (see checkedEur). */
 export function eurFor(card: Card, variant: Variant): number | null {
+  return checkedEur(rawEurFor(card, variant), usdFor(card, variant))
+}
+
+function rawEurFor(card: Card, variant: Variant): number | null {
   const p = card.cardmarket?.prices
   if (!p) return null
   if (variant === 'reverseHolofoil') {
@@ -93,7 +116,7 @@ export function bestEur(card: Card): number | null {
   const p = card.cardmarket?.prices
   if (!p) return null
   const values = [real(p.trendPrice) ?? real(p.averageSellPrice), real(p.reverseHoloTrend)].filter((n): n is number => n !== null)
-  return values.length ? Math.max(...values) : null
+  return values.length ? checkedEur(Math.max(...values), bestUsd(card)) : null
 }
 
 export type CurrencyMode = 'gbp' | 'usd' | 'eur'

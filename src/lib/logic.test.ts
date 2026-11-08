@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bestUsd, ebaySoldGbp, priceFor, variantsFor } from './pricing'
+import { bestEur, bestUsd, checkedEur, ebaySoldGbp, priceFor, variantsFor } from './pricing'
 import {
   applyExclusions,
   costToComplete,
@@ -75,6 +75,30 @@ describe('priceFor', () => {
 
   it('returns null when there is no data at all', () => {
     expect(priceFor(card({ id: 'me5-1', tcgplayer: {} }), 'normal', 'near_mint')).toBeNull()
+  })
+})
+
+describe('Cardmarket prices for the wrong printing', () => {
+  // Delta Reign: TCGdex links the illustration rare to the regular card's Cardmarket listing.
+  const sharedListing = { prices: { trendPrice: 5.69, averageSellPrice: 7.49, reverseHoloTrend: 0 } }
+  const regular = card({ id: 'me06-084', tcgplayer: { prices: { holofoil: { market: 7.66 } } }, cardmarket: sharedListing })
+  const sir = card({ id: 'me06-138', tcgplayer: { prices: { holofoil: { market: 319.52 } } }, cardmarket: sharedListing })
+
+  it('estimates euros from TCGplayer when Cardmarket is far too low', () => {
+    expect(priceFor(sir, 'holofoil', 'near_mint')).toEqual({ usd: 319.52, eur: 277.98 })
+    expect(bestEur(sir)).toBe(277.98)
+  })
+
+  it("keeps Cardmarket's price when the two roughly agree", () => {
+    expect(priceFor(regular, 'holofoil', 'near_mint')?.eur).toBe(5.69)
+    expect(bestEur(regular)).toBe(5.69)
+  })
+
+  it('leaves cheap cards and missing prices alone', () => {
+    expect(checkedEur(0.1, 15)).toBe(0.1) // big gap, but under €20 either way
+    expect(checkedEur(null, 300)).toBeNull()
+    expect(checkedEur(5, null)).toBe(5)
+    expect(checkedEur(200, 20)).toBe(200) // Cardmarket higher is left as it is
   })
 })
 
