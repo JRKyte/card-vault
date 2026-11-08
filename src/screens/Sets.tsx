@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { IconPlus, IconSearch, IconSparkle, IconStar, IconWand } from '../components/icons'
+import { IconPlus, IconRefresh, IconSearch, IconSparkle, IconStar, IconWand } from '../components/icons'
 import { SeriesTile, SetIcon, SetRow } from '../components/SetBits'
 import { ErrorMessage, Message, Modal, PageHeader, Screen, Segmented, Skeleton } from '../components/ui'
 import { setColor } from '../data/set-colors'
-import { useSeriesLogos, useSets } from '../lib/queries'
+import { useCheckForNewSets, useSeriesLogos, useSets } from '../lib/queries'
 import { seriesLogoFor } from '../lib/tcgdex'
 import { groupBySeries, useSetSummaries, type SetSummary } from '../lib/summaries'
 
@@ -89,6 +89,7 @@ export function Sets() {
               ))}
             </div>
           )}
+          {!summaries.setsLoading && <CheckForNewSets />}
         </>
       ) : rows.length === 0 && !summaries.trackedPending ? (
         <Message
@@ -120,6 +121,33 @@ export function Sets() {
 
       {chooser && <NewSetChooser onClose={() => setChooser(false)} trackedIds={summaries.trackedIds} />}
     </Screen>
+  )
+}
+
+/** New sets normally appear within a day; this checks right away. */
+function CheckForNewSets() {
+  const check = useCheckForNewSets()
+  const found = check.data ?? []
+  const result = check.isPending
+    ? null
+    : check.isError
+      ? "Couldn't check right now. Try again in a bit."
+      : check.isSuccess
+        ? found.length
+          ? `Found ${found.length === 1 ? 'a new set' : `${found.length} new sets`}: ${found.map((s) => s.name).join(', ')}`
+          : "You're up to date. No new sets yet."
+        : null
+
+  return (
+    <div className="mt-2 flex flex-col items-center gap-2 pb-2 text-center">
+      <button type="button" className="chip-btn" onClick={() => check.mutate()} disabled={check.isPending}>
+        <IconRefresh size={18} className={check.isPending ? 'animate-spin' : undefined} />
+        {check.isPending ? 'Checking…' : 'Check for new sets'}
+      </button>
+      <p role="status" className={`text-[13px] ${check.isError ? 'text-down' : found.length ? 'font-semibold text-up' : 'text-mute'}`}>
+        {result ?? 'New sets usually show up here within a day of release.'}
+      </p>
+    </div>
   )
 }
 

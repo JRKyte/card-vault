@@ -39,6 +39,19 @@ export const useSeriesLogos = () => useQuery({ queryKey: ['seriesLogos'], queryF
 export const useSets = () =>
   useQuery({ queryKey: keys.sets, queryFn: () => loadSets(), staleTime: 60 * 60 * 1000 })
 
+/** Rebuild the set list now instead of waiting for the daily refresh. Resolves to the sets that are new. */
+export function useCheckForNewSets() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const before = new Set((qc.getQueryData<TcgSet[]>(keys.sets) ?? []).map((s) => s.id))
+      const sets = await loadSets({ force: true })
+      qc.setQueryData(keys.sets, sets)
+      return before.size ? sets.filter((s) => !before.has(s.id)) : []
+    },
+  })
+}
+
 export function useSetById(id: string | undefined): TcgSet | undefined {
   const sets = useSets()
   return useMemo(() => sets.data?.find((s) => s.id === id), [sets.data, id])
