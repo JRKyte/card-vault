@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { priceFor, variantsFor } from './pricing'
-import { toCard, toTcgSet, type TdCard } from './tcgdexCards'
+import { scrydexSetId, toCard, toTcgSet, type TdCard } from './tcgdexCards'
 
 const mepSet = toTcgSet({
   id: 'mep',
@@ -53,5 +53,15 @@ describe('TCGdex-only sets and cards', () => {
   it('uses TCGdex images when it has them, and none when nobody does', () => {
     expect(toCard({ ...nidorina, set: { id: 'wp' }, image: 'https://assets.tcgdex.net/en/misc/wp/1' }, mepSet).images.small).toBe('https://assets.tcgdex.net/en/misc/wp/1/low.webp')
     expect(toCard({ ...nidorina, set: { id: 'mfb' } }, mepSet).images.small).toBe('')
+  })
+})
+
+describe('Scrydex pictures for sets TCGdex has no images for', () => {
+  it('maps TCGdex set ids to Scrydex ones', () => {
+    expect(scrydexSetId('me06')).toBe('me6')
+    expect(scrydexSetId('sv03.5')).toBe('sv3pt5')
+    expect(scrydexSetId('sv10')).toBe('sv10')
+    expect(scrydexSetId('2024sv')).toBe('mcd24')
+    expect(scrydexSetId('swsh1')).toBeUndefined()
   })
 })

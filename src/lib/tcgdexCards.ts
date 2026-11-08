@@ -14,6 +14,16 @@ const strip = (id: string) => id.slice(TCGDEX_PREFIX.length)
 /** TCGdex has no images for some newer sets; Scrydex (which pokemontcg.io uses) does, unpadded. */
 const SCRYDEX_SETS: Record<string, string> = { mep: 'mep', mee: 'mee', '2023sv': 'mcd23', '2024sv': 'mcd24' }
 
+/**
+ * The Scrydex id for a TCGdex set: the overrides above, else pokemontcg.io's style for the main
+ * series (me06 → me6, sv03.5 → sv3pt5). Brand-new sets often have Scrydex images days before TCGdex.
+ */
+export function scrydexSetId(tdSetId: string): string | undefined {
+  if (SCRYDEX_SETS[tdSetId]) return SCRYDEX_SETS[tdSetId]
+  const main = /^(sv|me)0?(\d+)(\.5)?$/.exec(tdSetId)
+  return main ? `${main[1]}${main[2]}${main[3] ? 'pt5' : ''}` : undefined
+}
+
 /** Match pokemontcg.io's series names so these sets join the right series on the Sets tab. */
 const SERIES_NAMES: Record<string, string> = { Miscellaneous: 'Other', "McDonald's Collection": 'Other', 'Trainer kits': 'Trainer Kits' }
 
@@ -86,7 +96,7 @@ const stageLabel = (stage: string) => stage.replace(/^Stage(\d)$/, 'Stage $1')
 export function toCard(d: TdCard, set: TcgSet): Card {
   const tdSetId = d.set.id
   const number = /^\d+$/.test(d.localId) ? String(Number(d.localId)) : d.localId
-  const scrydex = SCRYDEX_SETS[tdSetId]
+  const scrydex = scrydexSetId(tdSetId)
   const images = d.image
     ? { small: `${d.image}/low.webp`, large: `${d.image}/high.webp` }
     : scrydex

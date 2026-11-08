@@ -11,9 +11,10 @@ export const FRESH_MS = 24 * 60 * 60 * 1000
 
 /**
  * Bump when cached card data gains something new, so older cache rows refresh straight away
- * instead of waiting out the day. 2 = TCGdex EUR prices and variants.
+ * instead of waiting out the day. 2 = TCGdex EUR prices and variants;
+ * 3 = Scrydex pictures for new sets TCGdex has no images for yet.
  */
-export const CARD_CACHE_VERSION = 2
+export const CARD_CACHE_VERSION = 3
 
 const isFresh = (fetched_at: string) => Date.now() - new Date(fetched_at).getTime() < FRESH_MS
 
