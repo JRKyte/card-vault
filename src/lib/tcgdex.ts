@@ -109,19 +109,23 @@ export async function getJson<T>(path: string): Promise<T | null> {
 }
 
 const SETS_KEY = 'tcgdex-sets'
-const SETS_MAX_AGE = 3 * 24 * 60 * 60 * 1000
+const SETS_MAX_AGE = 24 * 60 * 60 * 1000
 let setsPromise: Promise<TcgdexSet[]> | null = null
 
-/** TCGdex's set list (one small request), kept on the device for a few days. */
-export function tcgdexSets(): Promise<TcgdexSet[]> {
-  if (!setsPromise) {
+/**
+ * TCGdex's set list (one small request), kept on the device for a day. `fresh` skips the saved
+ * copy: the daily set refresh uses it so a newly released set shows up the same day.
+ */
+export function tcgdexSets(opts: { fresh?: boolean } = {}): Promise<TcgdexSet[]> {
+  if (!setsPromise || opts.fresh) {
     setsPromise = (async () => {
+      let saved: { at: number; sets: TcgdexSet[] } | null = null
       try {
-        const saved = JSON.parse(localStorage.getItem(SETS_KEY) ?? 'null') as { at: number; sets: TcgdexSet[] } | null
-        if (saved && Date.now() - saved.at < SETS_MAX_AGE) return saved.sets
+        saved = JSON.parse(localStorage.getItem(SETS_KEY) ?? 'null')
       } catch {
         // Nothing saved.
       }
+      if (saved?.sets.length && !opts.fresh && Date.now() - saved.at < SETS_MAX_AGE) return saved.sets
       const sets = (await getJson<TcgdexSet[]>('/sets')) ?? []
       if (sets.length) {
         try {
@@ -129,8 +133,11 @@ export function tcgdexSets(): Promise<TcgdexSet[]> {
         } catch {
           // Storage full; fine.
         }
-      } else setsPromise = null // try again next time
-      return sets
+        return sets
+      }
+      setsPromise = null // try again next time
+      // TCGdex is down: an old list beats none, which would hide the TCGdex-only sets.
+      return saved?.sets ?? []
     })()
   }
   return setsPromise

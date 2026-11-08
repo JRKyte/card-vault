@@ -125,7 +125,7 @@ function setDetail(tdSetId: string): Promise<TdSet | null> {
 
 /** The physical sets TCGdex has that pokemontcg.io doesn't, as TcgSets. */
 export async function extraSets(ptcgSets: TcgSet[]): Promise<TcgSet[]> {
-  const all = await tcgdexSets()
+  const all = await tcgdexSets({ fresh: true })
   const covered = new Set(ptcgSets.map((s) => mapSetId(s, all)).filter((id): id is string => !!id))
   const missing = all.filter((s) => !covered.has(s.id) && !SKIP_SETS.has(s.id) && !isPocket(s.id))
   const details = await Promise.all(missing.map((s) => setDetail(s.id)))
